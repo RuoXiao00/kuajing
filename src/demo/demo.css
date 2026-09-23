@@ -1,0 +1,12 @@
+.demo-banner { min-height: 44px; display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 22px; background: #eff4ee; border-bottom: 1px solid #d8e3d5; color: #48604b; font-size: 12px; line-height: 1.6; }
+.demo-banner > div { display: flex; align-items: center; gap: 12px; }
+.demo-badge { display: inline-block; flex: none; border-radius: 5px; padding: 2px 7px; background: #d9e7d7; color: #36583e; font-size: 11px; font-weight: 650; letter-spacing: .05em; }
+.demo-banner a { color: #36583e; flex-shrink: 0; text-underline-offset: 4px; }
+.demo-banner button { border: 1px solid #a6bba2; background: white; color: #36583e; border-radius: 5px; padding: 5px 9px; cursor: pointer; }
+.router-content.demo-content { display: flex; flex-direction: column; min-height: 0; overflow: hidden; }
+.demo-route { flex: 1; min-height: 0; overflow: auto; }
+.demo-admin { max-width: 660px; padding: 50px 24px; margin: auto; line-height: 1.9; }
+.demo-admin a { display: inline-block; margin: 12px 24px 0 0; color: #36583e; }
+/* 展示页四个方案同屏比较，点击后仍可以查看完整原图。真实工作室布局不变。 */
+@media (min-width: 1200px) { .demo-content .ig-results { grid-template-columns: repeat(4, minmax(0, 1fr)); max-width: 100%; } }
+@media (max-width: 680px) { .demo-banner { min-height: 64px; padding: 8px 12px 8px 62px; font-size: 10px; gap: 5px; } .demo-banner > div { align-items: flex-start; flex-direction: column; gap: 2px; } .demo-banner a { max-width: 80px; flex-shrink: 1; } }

@@ -1,6 +1,10 @@
 // Actions 在构建前检查公开 API 地址，防止上线后仍访问游客自己的 localhost。
 // 本脚本不读取或输出 .env，也不需要任何供应商凭据。
 const raw = process.env.VITE_API_BASE_URL || '';
+if (process.env.VITE_DEMO_MODE === 'true') {
+  console.log('发布独立展示版：所有 API 使用内置样例，不需要后端地址或密钥。');
+  process.exit(0);
+}
 let api;
 try { api = new URL(raw); } catch { /* 统一在下面给出填写位置。 */ }
 if (!api || api.protocol !== 'https:' || api.username || api.password

@@ -6,6 +6,11 @@ import Tupian from "../compoment/tupian/Tupian";
 import Settings from "../compoment/shezhi/Settings";
 import AdminDashboard from "../compoment/guanli/AdminDashboard";
 import DefaultHome from "./DefaultHome";
+import { IS_DEMO, BACKEND_URL } from '../runtime';
+import { DemoAdmin, CookieOriginNotice } from '../demo/DemoBanner';
+
+const needsProjectDomain = !IS_DEMO && globalThis.location?.hostname.endsWith('.github.io')
+  && BACKEND_URL === 'https://api.qiyuange.online';
 
 // 路由表是 URL 到 React 元素的映射。它只描述“显示哪个组件”，
 // 不负责启动服务器，也不会在数组声明时发起知识库请求。
@@ -29,7 +34,7 @@ const routers = [
   },
   {
     path: "/tupian",
-    element: <Tupian />
+    element: needsProjectDomain ? <CookieOriginNotice /> : <Tupian />
   },
   {
     path: "/settings",
@@ -37,7 +42,7 @@ const routers = [
   },
   {
     path: "/admin",
-    element: <AdminDashboard />
+    element: IS_DEMO ? <DemoAdmin /> : needsProjectDomain ? <CookieOriginNotice /> : <AdminDashboard />
   },
   {
     // 已移除功能的旧书签或无效地址回到首页，避免显示空白内容。

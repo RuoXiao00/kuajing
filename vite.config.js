@@ -2,7 +2,14 @@ import react from '@vitejs/plugin-react'
 import { defineConfig } from 'vite'
 
 // https://vite.dev/config/
-export default defineConfig({
+export default defineConfig(({ mode }) => ({
+  // npm run dev:demo / build:demo 无需 .env 或密钥；真实开发模式不覆盖这些变量。
+  define: mode === 'demo' ? {
+    'import.meta.env.VITE_DEMO_MODE': JSON.stringify('true'),
+    'import.meta.env.VITE_CONNECTION_MODE': JSON.stringify('demo'),
+    'import.meta.env.VITE_ROUTER_MODE': JSON.stringify('hash'),
+    'import.meta.env.VITE_API_BASE_URL': JSON.stringify(''),
+  } : {},
   // Pages 项目站部署在 /仓库名/，自定义域名部署在 /；由 Actions 在构建时传入。
   // 开发和原来的服务器同源部署不设置此变量，继续使用根路径。
   base: process.env.VITE_BASE_PATH || '/',
@@ -23,4 +30,4 @@ export default defineConfig({
       },
     },
   },
-})
+}))

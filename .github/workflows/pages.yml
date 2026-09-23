@@ -4,6 +4,13 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
+    inputs:
+      mode:
+        description: 'auto 优先真实后端，连接失败展示样例；demo 强制展示；live 仅真实服务'
+        type: choice
+        required: true
+        default: auto
+        options: [auto, demo, live]
 
 permissions:
   contents: read
@@ -35,7 +42,10 @@ jobs:
       - name: Build public frontend
         # 这里只配置公开 API 地址，不使用模型密钥或 Coze Token。
         env:
-          VITE_API_BASE_URL: ${{ vars.VITE_API_BASE_URL }}
+          # 默认自动检测，域名恢复后不必再改代码；手动模式优先于仓库变量。
+          VITE_CONNECTION_MODE: ${{ inputs.mode || vars.PAGES_MODE || 'auto' }}
+          VITE_DEMO_MODE: ${{ (inputs.mode || vars.PAGES_MODE || 'auto') == 'demo' && 'true' || 'false' }}
+          VITE_API_BASE_URL: ${{ vars.VITE_API_BASE_URL || 'https://api.qiyuange.online' }}
           VITE_BASE_PATH: ${{ steps.pages.outputs.base_path }}/
           VITE_ROUTER_MODE: hash
         run: |

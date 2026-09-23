@@ -1,3 +1,4 @@
+import { request as fetch } from '../../api.js';
 // 价格和汇率计算单独放在纯函数里，方便用固定数值验证，不依赖页面或真实汇率涨跌。
 // 优先读明确币种；歧义符号结合已声明币种及真实商品站点，不能按金额大小猜。
 export function detectCurrency(text, sourceUrl, declaredCurrency = null) {

@@ -1,3 +1,4 @@
+import { storageKey } from '../../runtime.js';
 /**
  * 知识库会话的本地存储边界。
  *
@@ -5,7 +6,7 @@
  * 禁止站点存储时可能直接抛异常。本模块把“不可信的旧数据”和“可能失败的
  * 写入”都隔离起来，React 组件只接收结构稳定的数据，存储失败也不会卸载页面。
  */
-export const KNOWLEDGE_STORAGE_KEY = 'kuajing-knowledge-conversations-v2';
+export const KNOWLEDGE_STORAGE_KEY = storageKey('kuajing-knowledge-conversations-v2');
 export const MAX_CONVERSATIONS = 20;
 export const MAX_PERSISTED_MESSAGES = 60; // 30 轮问答 = 60 条 user/assistant 消息。
 const MAX_SERIALIZED_CHARACTERS = 3_800_000;

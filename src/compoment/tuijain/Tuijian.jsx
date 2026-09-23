@@ -1,8 +1,10 @@
+import { request as fetch } from '../../api.js';
+import { IS_DEMO } from '../../runtime.js';
 import { useEffect, useRef, useState } from 'react';
 import './Tuijian.css';
 
 // 同源 /api 由现有 Vite 代理转发。页面只读每日快照，绝不触发模型或抓取。
-const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '');
+const API_BASE_URL = IS_DEMO ? '' : (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '');
 const categoryKey = (category) => category?.candidate_id || category?.keyword || category?.title || '';
 
 function displayTime(value) {
@@ -113,6 +115,7 @@ export default function Tuijian() {
   }, []);
 
   const updateText = {
+    demo: '预置演示快照 · 非实时推荐',
     pending: '等待后台生成每日推荐', updating: '后台正在更新，已有结果仍可查看',
     ready: '每日推荐已更新', update_failed: '上次更新未完成，保留最近可用结果',
   }[data?.update_status] || '正在读取每日推荐';
@@ -134,9 +137,9 @@ export default function Tuijian() {
         </div>
       <section className="recommendation-snapshot" aria-label="每日推荐更新状态">
         <div>
-          <strong>每日推荐 · 北京时间 05:00 开始更新</strong>
+          <strong>{IS_DEMO ? '产品推荐 · 交互展示' : '每日推荐 · 北京时间 05:00 开始更新'}</strong>
           <p role="status">{updateText}{data?.partial ? ' · 当前展示部分结果' : ''}{data?.is_stale ? ' · 当前为历史结果' : ''}</p>
-          <p>实际生成时间：{displayTime(data?.generated_at)}</p>
+          <p>{IS_DEMO ? '样例日期' : '实际生成时间'}：{displayTime(data?.generated_at)}</p>
           {data?.next_update_at && <p>下次定时更新：{displayTime(data.next_update_at)}</p>}
           {data?.retry_at && <p>后台补试时间：{displayTime(data.retry_at)}</p>}
           {data?.last_error && <p className="recommendation-job-error">{data.last_error}</p>}

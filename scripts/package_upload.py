@@ -73,7 +73,8 @@ def main():
     output.mkdir(parents=True)
     needed = {".dockerignore", "compose.baota.yaml", "deploy/Dockerfile.api", "deploy/backend.baota.env.example",
               "deploy/baota-proxy.conf", "deploy/baota-init.sh", "deploy/baota-inspect.sh", "docs/baota-upload-steps.md",
-              "docs/github-pages-cloud-tutorial.md", "docs/github-docker-deployment-tutorial.md"}
+              "docs/github-pages-cloud-tutorial.md", "docs/github-docker-deployment-tutorial.md",
+              "deploy/enable-pages-origin.sh", "docs/pages-auto-connect.md"}
     backend = [p for p in paths if p.relative_to(ROOT).as_posix() in needed or
                (p.relative_to(ROOT).parts[0] == "backend" and "tests" not in p.parts)]
     required = {"backend/app.py", "backend/requirements.txt", "backend/zhishiku/requirements.txt"} | needed

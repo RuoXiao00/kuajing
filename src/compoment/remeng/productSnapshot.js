@@ -1,9 +1,10 @@
+import { IS_DEMO, storageKey } from '../../runtime.js';
 import { hasValidPrice } from './productPricing.js'
 import { productLink } from './productMarketplace.js'
 
 // 首屏快照只负责“先有商品可看”，不接管爬虫分页。新请求仍从第一页开始，
 // 因此不能把预存数据的 next_page 当成实时请求游标，否则会漏掉最新第一页。
-const PREFIX = 'kuajing:product-first-page:v1:'
+const PREFIX = storageKey('kuajing:product-first-page:v1:')
 const MAX_BYTES = 300_000
 const text = value => typeof value === 'string' ? value : null
 const number = value => typeof value === 'number' && Number.isFinite(value) ? value : null
@@ -35,6 +36,7 @@ function cleanPage(value, category, subCategory) {
 export function readFirstPage(category, subCategory, serverSnapshot, storage) {
   // 服务器快照与本地缓存比较时间，始终选较新的同筛选结果。
   // 全新浏览器由只读接口拿到共享快照；不再从发布包里的固定商品文件取数据。
+  if (IS_DEMO) return null
   let saved = null
   try {
     const raw = (storage ?? globalThis.localStorage)?.getItem(`${PREFIX}${category}:${subCategory}`)
@@ -52,6 +54,7 @@ export function readFirstPage(category, subCategory, serverSnapshot, storage) {
 export function saveFirstPage(payload, category, subCategory, storage) {
   // 只保存一张完整的真实第一页；空响应、部分失败和后续页不能覆盖上次可用首屏。
   // 固定页面筛选组合，最多18份快照，不把无限滚动累积的全部商品写入浏览器。
+  if (IS_DEMO) return false
   const data = cleanPage(payload, category, subCategory)
   if (!data) return false
   try {

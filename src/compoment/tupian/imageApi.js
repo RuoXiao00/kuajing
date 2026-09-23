@@ -1,5 +1,7 @@
+import { request as fetch } from '../../api.js';
+import { IS_DEMO } from '../../runtime.js';
 // 页面只访问本项目后端，Coze 令牌和临时图片地址不会写进前端。
-export const API_BASE = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '');
+export const API_BASE = IS_DEMO ? '' : (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '');
 export const MODES = [
   { id: 'product', label: '产品图', roles: ['product'] },
   { id: 'model', label: '产品 + 模特', roles: ['product', 'model'] },

@@ -1,3 +1,5 @@
+import { request as fetch } from '../../api.js';
+import { IS_DEMO } from '../../runtime.js';
 import './Remeng.css'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { convertToCny, getProductPrice, hasValidPrice, loadExchangeRates } from './productPricing'
@@ -7,7 +9,7 @@ import { productLink, productMarketLabel } from './productMarketplace'
 import { usePreferences } from '../shezhi/usePreferences'
 
 // 热门、推荐和知识库统一使用8000，开发环境由Vite代理，不再额外依赖8001。
-const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '')
+const API_BASE_URL = IS_DEMO ? '' : (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '')
 const PRODUCTS_API = `${API_BASE_URL}/api/remen/products`
 const REQUEST_TIMEOUT = 180_000 // 后端有 120 秒软预算，还要留出最后一页的等待时间。
 const EMPTY_PRODUCTS = []
@@ -277,14 +279,14 @@ export default function Remeng() {
           onClick={() => setRetryCount(count => count + 1)}>更新并换一批</button>
       </div>
       <p className="rm-description">
-        {category === 'hot' ? '按公开近月购买提示及评论热度筛选。' : '筛选公开评论数不超过 100 的商品。'}
-        当前数据来自 Amazon 搜索页，不代表全站榜单。
-        仅展示有有效价格的商品。
-        优先展示近7天未浏览的商品，再次进入会接着发现后续页面。
+        {IS_DEMO ? '商品与指标均为人工构造，非实时榜单。可体验品类筛选、币种换算与滚动分页。'
+          : <>{category === 'hot' ? '按公开近月购买提示及评论热度筛选。' : '筛选公开评论数不超过 100 的商品。'}
+            当前数据来自 Amazon 搜索页，不代表全站榜单。仅展示有有效价格的商品。
+            优先展示近7天未浏览的商品，再次进入会接着发现后续页面。</>}
       </p>
       <p className="rm-exchange-note">
-        人民币为参考换算价，实际付款以商品页为准。
-        汇率来源：<a href="https://frankfurter.dev/" target="_blank" rel="noopener noreferrer">Frankfurter</a>。
+        {IS_DEMO ? '汇率采用固定模拟值，只演示转换过程，不供实际交易参考。' : <>人民币为参考换算价，实际付款以商品页为准。
+        汇率来源：<a href="https://frankfurter.dev/" target="_blank" rel="noopener noreferrer">Frankfurter</a>。</>}
         {exchange.status === 'error' && <>
           汇率暂不可用，当前显示原币价格。
           <button type="button" onClick={() => {
@@ -310,7 +312,7 @@ export default function Remeng() {
       {data && <>
         <div className="rm-summary" role="status">
           <span>已加载 {products.length} 件商品{data.partial ? ' · 含部分抓取结果' : ''}</span>
-          <span>{data.is_preview ? `${data.preview_source === 'saved' ? '上次保存的商品' : '服务器最近更新的商品'} · ${loadingMore ? '正在获取最新数据' : '更新暂未成功，保留快照'}`
+          <span>{IS_DEMO ? '项目内置样例 · 非真实抓取' : data.is_preview ? `${data.preview_source === 'saved' ? '上次保存的商品' : '服务器最近更新的商品'} · ${loadingMore ? '正在获取最新数据' : '更新暂未成功，保留快照'}`
             : data.from_cache ? '来自近期缓存' : '含本次抓取数据'}{fetchedAtText ? ` · 最近一批快照时间：${fetchedAtText}` : ''}</span>
         </div>
         {/* 中途失败时后端仍可能返回商品。保留结果并展示 warnings，不伪装完整成功。 */}
@@ -330,10 +332,10 @@ export default function Remeng() {
                 {/* sales 是页面原文的近月购买提示，不是精确销量；缺失不能显示成 0。 */}
                 <p>近月购买提示：{product.sales || '未公开'}</p>
                 <p>评分：{product.rating ?? '未公开'} · 评论数：{product.review_count ?? '未公开'}</p>
-                <p>来源：{productMarketLabel(product)}</p>
+                <p>来源：{IS_DEMO ? '人工构造的演示商品' : productMarketLabel(product)}</p>
                 {/* 校验区域站白名单，保留原站点；日本站的价格不能链接到美国站商品。 */}
-                <a href={productLink(product)}
-                  target="_blank" rel="noopener noreferrer">查看商品 ↗</a>
+                <a href={IS_DEMO ? product.image_url : productLink(product)}
+                  target="_blank" rel="noopener noreferrer">{IS_DEMO ? '查看示意图' : '查看商品'} ↗</a>
               </div>
             </article>)}
           </div>}

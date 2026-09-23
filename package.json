@@ -5,10 +5,12 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:demo": "vite --mode demo",
     "backend": "python -m backend.run_api",
     "build": "vite build",
+    "build:demo": "vite build --mode demo",
     "lint": "oxlint",
-    "test:frontend": "node --test src/compoment/zhishiku/*.test.js src/compoment/remeng/*.test.js src/compoment/shezhi/*.test.js",
+    "test:frontend": "node --test src/compoment/zhishiku/*.test.js src/compoment/remeng/*.test.js src/compoment/shezhi/*.test.js src/demo/*.test.js",
     "preview": "vite preview"
   },
   "dependencies": {

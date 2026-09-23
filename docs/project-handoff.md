@@ -1,5 +1,16 @@
 # 跨境阁项目交接：给新聊天中的 AI
 
+## 2026-09-23 面试展示与自动连接（以此节为最新状态）
+
+- 用户用途是面试项目，要求 Pages 优先真实后端，失败自动展示样例；不用等备案通过再改前端。默认 workflow mode=auto，API=https://api.qiyuange.online。
+- `src/runtime.js` 在页面模块动态导入前检测健康状态（2.5 秒），验证 CORS 和 JSON；展示每分钟检测恢复，无交互时自动刷新，有交互时提示并在切页时切换。demo/live/auto 可以通过 Actions 选择，未来 push 默认为 auto 或仓库 PAGES_MODE。
+- `src/demo/` 提供明确标注的人工商品、4 组 SSE 预置回答、4 张原创 SVG 插画；不上传参考图片，不调用收费接口。展示/真实本地存储分区；真实失败请求不会被样例伪装成成功。
+- README 改为项目展示入口、截图、工程实现、运行与验收说明；原详细本机说明移至 `docs/local-development.md`。`docs/pages-auto-connect.md` 是本次自动连接配置入口。
+- 真实服务器已 healthy，api 域名 HTTPS/反代本机验证通过，公网之前被 ICP 拦截；不要误判为容器未构建或域名尚未注册。域名是 qiyuange.online，前端 app 子域名仍待用户绑定 Pages。
+- `deploy/enable-pages-origin.sh` 供用户在已有服务器执行一次，备份 env、设置 GitHub 与 app 的允许来源、重建容器读取 env，不重建镜像。当前没有服务器 shell 连接，不能声称该脚本已在服务器执行。
+- Strict Cookie 跨站不能仅靠 CORS 修复；真实图片/管理页在 github.io 上提示访问 app.qiyuange.online，避免付费任务创建后读取失败。自定义域名按指南一次性配置后，Pages 仍然托管前端。
+- 验证：47 项前端测试、lint、展示/自动/真实构建；`verify_demo.py` 离线 UI/分页/SSE/下载/移动/自动恢复，`verify_pages.py` 原有真实协议替身回归。截图不含用户资料或真实模型输出。
+
 ## 2026-09-23 宝塔直接上传与旧部署保留
 
 - 最新验收：用户已粘贴真实服务器 env 并启动，`kuajing-next-api-1` 显示 `healthy`，绑定 `127.0.0.1:18000->8000/tcp`；服务器 curl 根接口返回跨境阁 API JSON。说明进程和根健康检查正常，不等于模型/爬虫/知识库/生图都通过真实业务验收。下一步前端仓库与 Pages、HTTPS 入口；只有 IP、没有域名，`FRONTEND_ORIGINS` 仍待配置。无需再构建/初始化后端，不输出真实 env。

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { ACTIVE, API_BASE, imageRequest, MODES, ROLES, STATUS } from './imageApi';
 import './Tupian.css';
+import { IS_DEMO } from '../../runtime';
 
 const fullUrl = (path) => `${API_BASE}${path}`;
 const formatTime = (value) => new Date(value).toLocaleString('zh-CN', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' });
@@ -52,7 +53,7 @@ function Generation({ job, onPreview, onRetrySave, onReuse }) {
       </button>)}</div>
     </div>
     <div className="ig-assistant-message">
-      <div className="ig-assistant-heading"><span className="ig-avatar" aria-hidden="true">✧</span><strong>图片工作室</strong><span className={`ig-status ${pending ? 'is-active' : ''}`}>{STATUS[job.status]}</span></div>
+      <div className="ig-assistant-heading"><span className="ig-avatar" aria-hidden="true">✧</span><strong>图片工作室</strong><span className={`ig-status ${pending ? 'is-active' : ''}`}>{IS_DEMO ? '预置示例' : STATUS[job.status]}</span></div>
       {job.reply && <p className="ig-reply">{job.reply}</p>}
       {pending && <p className="ig-progress" role="status"><span className="ig-spinner" />{STATUS[job.status]}，完成的图片会出现在这里。你可以切换页面，稍后回来查看。</p>}
       {(job.images.length > 0 || pending) && <div className="ig-results">
@@ -61,11 +62,11 @@ function Generation({ job, onPreview, onRetrySave, onReuse }) {
             <img src={fullUrl(item.url)} alt={`${job.prompt} · 方案 ${item.index + 1}`} loading="lazy" />
             <span className="ig-zoom-hint">点击查看大图 ↗</span>
           </button>
-          <figcaption><span>方案 {String(item.index + 1).padStart(2, '0')}</span><a href={fullUrl(`${item.url}?download=true`)} download={item.name}>↓ 保存原图</a></figcaption>
+          <figcaption><span>方案 {String(item.index + 1).padStart(2, '0')}</span><a href={fullUrl(`${item.url}?download=true`)} download={item.name}>↓ {IS_DEMO ? '下载示例' : '保存原图'}</a></figcaption>
         </figure>)}
         {pending && Array.from({ length: Math.max(0, 4 - job.images.length) }, (_, i) => <div className="ig-placeholder" key={`pending-${i}`}><span>✧</span><p>让灵感成像</p></div>)}
       </div>}
-      {job.images.length > 0 && <p className="ig-saved-note">✓ {job.images.length} 张原图已保存到本机，刷新后仍可查看和下载。</p>}
+      {job.images.length > 0 && <p className="ig-saved-note">{IS_DEMO ? '四张原创 SVG 示意图随页面提供，可放大和下载；刷新恢复默认样例。' : `✓ ${job.images.length} 张原图已保存到本机，刷新后仍可查看和下载。`}</p>}
       {job.error && <p className="ig-error" role="alert">{job.error}</p>}
       {!pending && <div className="ig-turn-actions">
         {job.can_retry_save && <button type="button" onClick={() => onRetrySave(job.id)}>重试保存图片</button>}
@@ -102,7 +103,7 @@ export default function Tupian() {
   // Coze 开始节点只有 product_img1 必填；模特/背景参考图和提示词都不能阻止提交。
   // mode 仍由页面提供，后端把它转换成必填的 need_what，无需用户另填。
   const missingProduct = references.product.length === 0;
-  const submitHint = !ready ? '正在连接图片服务…' : !configured ? '请先配置后端 Coze 令牌'
+  const submitHint = IS_DEMO ? '无需上传即可预览；选图只在浏览器内展示' : !ready ? '正在连接图片服务…' : !configured ? '请先配置后端 Coze 令牌'
     : busy ? '创作进行中，参考图会保留供下次使用' : totalReferences > 5 ? '参考图合计最多 5 张'
     : missingProduct ? '请先上传产品图，提示词和其他参考图均可选' : '提示词可留空 · Ctrl / ⌘ + Enter 发送';
 
@@ -158,7 +159,7 @@ export default function Tupian() {
   async function submit(event) {
     event.preventDefault();
     if (submittingRef.current || busy || !ready) return;
-    if (missingProduct || totalReferences > 5) { setError('请上传至少 1 张产品图，参考图合计最多 5 张。提示词可留空。'); return; }
+    if ((!IS_DEMO && missingProduct) || totalReferences > 5) { setError('请上传至少 1 张产品图，参考图合计最多 5 张。提示词可留空。'); return; }
     submittingRef.current = true; setSubmitting(true); setError('');
     // 网络重试沿用 request_id，后端会返回原任务，避免重复执行收费工作流。
     submissionId.current ||= crypto.randomUUID();
@@ -189,7 +190,7 @@ export default function Tupian() {
   }
 
   return <div className="ig-page">
-    <header className="ig-header"><div><span className="ig-eyebrow">IMAGE STUDIO</span><h1>图片工作室 <span>让产品，多一种可能。</span></h1></div><span className="ig-local-badge"><i /> 原图本地保存</span></header>
+    <header className="ig-header"><div><span className="ig-eyebrow">IMAGE STUDIO</span><h1>图片工作室 <span>让产品，多一种可能。</span></h1></div><span className="ig-local-badge"><i /> {IS_DEMO ? '预置场景插画' : '原图本地保存'}</span></header>
     <div className="ig-conversation" ref={scrollRef}><div className="ig-thread">
       {before && <button className="ig-history-button" type="button" disabled={loadingOlder} onClick={loadOlder}>{loadingOlder ? '正在读取…' : '查看更早的创作'}</button>}
       {!ready && !error && <p className="ig-loading" role="status">正在打开你的工作室…</p>}
@@ -230,14 +231,14 @@ export default function Tupian() {
           <ReferenceUpload key={mode} roles={selectedMode.roles} references={references} total={totalReferences} onChange={changeReferences} disabled={busy} />
           <span id="ig-submit-hint" role="status">{submitHint}</span>
           <div className="ig-controls"><label>生成类型<select value={mode} disabled={busy} onChange={(event) => { setMode(event.target.value); submissionId.current = null; setShowReferences(true); }}>{MODES.map((item) => <option value={item.id} key={item.id}>{item.label}</option>)}</select></label>
-            <button className="ig-send" type="submit" title={submitHint} disabled={!ready || !configured || busy || missingProduct || totalReferences > 5}>{submitting ? '正在提交…' : pendingIds ? '正在创作…' : '生成 4 张'} <span aria-hidden="true">↑</span></button>
+            <button className="ig-send" type="submit" title={submitHint} disabled={!ready || !configured || busy || (!IS_DEMO && missingProduct) || totalReferences > 5}>{IS_DEMO ? '预览 4 张示例' : submitting ? '正在提交…' : pendingIds ? '正在创作…' : '生成 4 张'} <span aria-hidden="true">↑</span></button>
           </div>
         </div>
       </form>
-      <p className="ig-footer-note">图片保存在运行后端的电脑上。本浏览器可查看历史；重要作品也可以下载留存。</p>
+      <p className="ig-footer-note">{IS_DEMO ? '展示版不生成新图片。提示词不影响预置示例，参考图不会上传；真实 Coze 生图请使用完整版。' : '图片保存在运行后端的电脑上。本浏览器可查看历史；重要作品也可以下载留存。'}</p>
     </div>
     {preview && <dialog className="ig-lightbox" ref={dialogRef} onCancel={() => setPreview(null)} onClick={(event) => { if (event.target === event.currentTarget) setPreview(null); }}>
-      <div className="ig-lightbox-toolbar"><span>{preview.label}</span><a href={fullUrl(`${preview.url}?download=true`)} download={preview.name}>↓ 保存原图</a><button type="button" aria-label="关闭大图" onClick={() => setPreview(null)}>×</button></div>
+      <div className="ig-lightbox-toolbar"><span>{preview.label}</span><a href={fullUrl(`${preview.url}?download=true`)} download={preview.name}>↓ {IS_DEMO ? '下载示例' : '保存原图'}</a><button type="button" aria-label="关闭大图" onClick={() => setPreview(null)}>×</button></div>
       <img src={fullUrl(preview.url)} alt={preview.label} />
     </dialog>}
   </div>;

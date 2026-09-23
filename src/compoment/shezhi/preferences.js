@@ -1,6 +1,7 @@
+import { storageKey } from '../../runtime.js';
 // 只保存界面偏好，不保存令牌、密码、聊天或图片数据；每个浏览器拥有自己的设置。
-export const PREFERENCES_KEY = 'kuajing-preferences-v1'
-export const LEGACY_NAVIGATION_KEY = 'kuajing-navigation-state-v1'
+export const PREFERENCES_KEY = storageKey('kuajing-preferences-v1')
+export const LEGACY_NAVIGATION_KEY = storageKey('kuajing-navigation-state-v1')
 export const HOME_PAGES = [
   { path: '/tuijian', label: '产品推荐' },
   { path: '/zhishiku', label: '知识库' },

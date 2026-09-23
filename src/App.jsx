@@ -5,6 +5,8 @@ import routers from './routers';
 import NavigationIcon from './NavigationIcon';
 import { useKnowledgeConversations } from './compoment/zhishiku/KnowledgeConversationContext';
 import { usePreferences } from './compoment/shezhi/usePreferences';
+import { IS_DEMO } from './runtime';
+import DemoBanner from './demo/DemoBanner';
 
 // App 是全站布局组件：路由页放在右侧，导航和知识库会话列表放在左侧。
 // 页面状态改变会让函数重新执行，但 localStorage 和会话数据分别由专门模块管理。
@@ -122,7 +124,7 @@ export default function App() {
   }, [mobileNavigationOpen]);
 
   if (location.pathname.startsWith('/admin')) {
-    return <div className="admin-shell">{routeElements}</div>;
+    return <div className="admin-shell">{IS_DEMO && <DemoBanner />}{routeElements}</div>;
   }
 
   // 面板是否“展开”只由路由和按钮决定。桌面整栏折叠时由 CSS 隐藏，但仍
@@ -224,7 +226,9 @@ export default function App() {
           <span className="account-icon">设置</span>
         </NavLink>
       </aside>
-      <main className="router-content">{routeElements}</main>
+      <main className={`router-content ${IS_DEMO ? 'demo-content' : ''}`}>
+        {IS_DEMO ? <><DemoBanner /><div className="demo-route">{routeElements}</div></> : routeElements}
+      </main>
     </div>
   );
 }

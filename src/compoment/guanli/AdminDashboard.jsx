@@ -1,7 +1,9 @@
+import { request as fetch } from '../../api.js';
+import { IS_DEMO } from '../../runtime.js';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import './AdminDashboard.css';
 
-const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '');
+const API_BASE_URL = IS_DEMO ? '' : (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '');
 
 // 管理页的知识库链路分成三层：AdminDashboard 校验会话，AdminLogin 登录，
 // KnowledgeManager 读取统计并维护上传队列。静态商品总览与入库流程无关。

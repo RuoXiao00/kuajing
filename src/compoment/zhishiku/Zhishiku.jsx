@@ -1,3 +1,5 @@
+import { request as fetch } from '../../api.js';
+import { IS_DEMO } from '../../runtime.js';
 import { useEffect, useState } from 'react';
 import AnswerMarkdown from './AnswerMarkdown';
 import { createTokenBuffer } from './tokenBuffer';
@@ -8,7 +10,7 @@ import './Zhishiku.css';
 
 // 本组件只负责浏览器交互；检索、Rerank 和模型生成都在后端。
 // 运行顺序：组件渲染 → 用户发送 → fetch 建立 SSE → 解析事件 → 更新 Context。
-const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '');
+const API_BASE_URL = IS_DEMO ? '' : (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '');
 const SUGGESTIONS = [
   '亚马逊 FBA 物流有哪些主要费用？',
   '欧洲站 VAT 注册和申报要注意什么？',
@@ -264,7 +266,7 @@ export default function Zhishiku() {
     }
   }
 
-  const healthLabel = serviceStatus?.status === 'ok'
+  const healthLabel = IS_DEMO ? '离线展示 · 预置回答' : serviceStatus?.status === 'ok'
     ? '知识库在线'
     : serviceStatus?.status === 'degraded'
       ? '知识库在线 · 精排降级'
@@ -279,7 +281,7 @@ export default function Zhishiku() {
             <p><i className={serviceStatus?.status === 'unavailable' ? 'offline' : ''} />{healthLabel}</p>
             {storageWarning && <p className="storage-warning" role="status">{storageWarning}</p>}
           </div>
-          <span className="chat-mode">知识库限定回答</span>
+          <span className="chat-mode">{IS_DEMO ? '预置问答演示' : '知识库限定回答'}</span>
         </header>
 
         <div className="message-scroll" ref={scrollContainerRef} tabIndex={0} role="region" aria-label="聊天消息">
@@ -289,8 +291,8 @@ export default function Zhishiku() {
               <p className="welcome-kicker">KNOWLEDGE, GROUNDED</p>
               <h2>从亚马逊资料中，找到可追溯的答案</h2>
               <p className="welcome-copy">
-                我会先检索知识库、精排相关资料，再生成带 [资料 n] 引用的回答。
-                政策与税务信息仍建议核对发布日期和官方最新规则。
+                {IS_DEMO ? '点击下方问题，体验流式文字、停止生成和资料引用。回答为人工预置内容，不进行真实检索或模型推理。'
+                  : '我会先检索知识库、精排相关资料，再生成带 [资料 n] 引用的回答。政策与税务信息仍建议核对发布日期和官方最新规则。'}
               </p>
               <div className="suggestion-grid">
                 {SUGGESTIONS.map((question) => (
@@ -365,7 +367,7 @@ export default function Zhishiku() {
               >↑</button>
             )}
           </div>
-          <p>Enter 发送 · Shift + Enter 换行 · 回答仅依据已入库资料</p>
+          <p>Enter 发送 · Shift + Enter 换行 · {IS_DEMO ? '预置内容仅展示交互，聊天保存在此浏览器' : '回答仅依据已入库资料'}</p>
         </footer>
       </section>
     </main>

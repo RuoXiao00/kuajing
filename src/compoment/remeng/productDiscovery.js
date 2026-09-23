@@ -1,6 +1,7 @@
+import { storageKey } from '../../runtime.js';
 // 浏览偏好只保存在本机，不发送账号或浏览记录给模型/商品站。
 // “看过”由卡片进入可视区域决定，不把只下载但没浏览的整页商品标为已看。
-const PREFIX = 'kuajing:product-discovery:v1:'
+const PREFIX = storageKey('kuajing:product-discovery:v1:')
 const WEEK = 7 * 24 * 60 * 60 * 1000
 
 export function readDiscovery(category, subCategory, storage, now = Date.now()) {
