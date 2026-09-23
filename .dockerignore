@@ -1,0 +1,25 @@
+# 使用白名单构建上下文；本机 .env、数据库和知识原文不会发送给 Docker 构建器。
+**
+!backend/
+!backend/**
+!src/
+!src/**
+!public/
+!public/**
+!deploy/
+!deploy/Dockerfile.*
+!deploy/Caddyfile
+!package.json
+!package-lock.json
+!index.html
+!vite.config.js
+# 白名单里的后端仍要排除本地数据和秘密配置。
+**/.env
+**/.env.*
+**/*.env
+**/runtime/
+**/runtime-backup*/
+**/__pycache__/
+**/*.pyc
+**/tests/
+**/*.log

@@ -1,0 +1,11 @@
+# 作为覆盖文件使用：docker compose -f compose.yaml -f compose.https.yaml ...
+services:
+  web:
+    env_file:
+      - path: ./deploy/site.env
+        format: raw
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./deploy/Caddyfile.https:/etc/caddy/Caddyfile:ro

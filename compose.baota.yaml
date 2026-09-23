@@ -1,0 +1,35 @@
+# 宝塔宿主机 Nginx 提供 HTTPS；此方案不启动 Caddy、不占用 80/443。
+# 只使用这一份：docker compose -f compose.baota.yaml up -d --build
+name: kuajing-next
+services:
+  api:
+    build:
+      context: .
+      dockerfile: deploy/Dockerfile.api
+    env_file:
+      - path: ./deploy/backend.env
+    # 兼容宝塔现有 Compose 2.28.1。env 中用单引号保护 bcrypt 哈希里的 $，
+    # 不使用 2.30 才支持的 format: raw；示例见 backend.baota.env.example。
+    init: true
+    restart: unless-stopped
+    shm_size: 1gb
+    stop_grace_period: 2m
+    # 仅宿主机可连接，宝塔反向代理到这里。不在安全组开放 18000。
+    ports:
+      - "127.0.0.1:18000:8000"
+    volumes:
+      - ./server-data/knowledge:/app/backend/zhishiku/runtime
+      - ./server-data/recommendations:/app/backend/tuijian/runtime
+      - ./server-data/products:/app/backend/remen/runtime
+      - ./server-data/images:/app/backend/tupian/runtime
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/', timeout=5).read()"]
+      interval: 30s
+      timeout: 10s
+      start_period: 60s
+      retries: 5
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"

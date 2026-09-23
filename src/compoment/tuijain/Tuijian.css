@@ -1,0 +1,260 @@
+.tuijian {
+  position: relative;
+  min-height: 100%;
+  padding: 3.5rem clamp(1.25rem, 5vw, 5rem) 4rem;
+  box-sizing: border-box;
+  color: #25231f;
+  background: linear-gradient(135deg, #f7f2e9 0%, #fbfaf7 48%, #e7eee9 100%);
+}
+
+.category-heading {
+  position: relative;
+  margin-bottom: 2.5rem;
+  padding-left: 1.25rem;
+  padding-right: 9rem;
+  border-left: 4px solid #b65d3b;
+}
+
+.category-index,
+.analysis-label {
+  color: #8a6e58;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+}
+
+.category-heading h1 {
+  max-width: 900px;
+  margin: 0.45rem 0 0;
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: clamp(2rem, 4vw, 4.2rem);
+  font-weight: 500;
+  line-height: 1.05;
+  overflow-wrap: anywhere;
+}
+
+.category-status {
+  display: inline-block;
+  margin-top: 0.75rem;
+  color: #9c5638;
+  font-size: 0.8rem;
+}
+
+.category-products {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.product-tile {
+  min-width: 0;
+  color: inherit;
+  text-decoration: none;
+}
+
+.product-tile img,
+.image-placeholder {
+  display: block;
+  width: 100%;
+  aspect-ratio: 1 / 1.1;
+  object-fit: cover;
+  background: #e9e5dc;
+}
+
+.image-placeholder {
+  display: grid;
+  place-items: center;
+  color: #887f73;
+  font-size: 0.85rem;
+}
+
+.product-title {
+  display: -webkit-box;
+  margin-top: 0.75rem;
+  overflow: hidden;
+  color: #514a42;
+  font-size: 0.82rem;
+  line-height: 1.4;
+  -webkit-box-orient: vertical;
+  line-clamp: 2;
+  -webkit-line-clamp: 2;
+}
+
+.product-tile:hover img {
+  outline: 3px solid #b65d3b;
+  outline-offset: -3px;
+}
+
+.ai-analysis {
+  max-width: 1000px;
+  margin-top: 3rem;
+  padding: 1.5rem 1.75rem;
+  border-top: 1px solid #c9b8a5;
+  border-bottom: 1px solid #c9b8a5;
+  background: #fffdf9aa;
+}
+
+.ai-analysis p {
+  margin: 0.85rem 0 0;
+  color: #413b35;
+  font-size: 1rem;
+  line-height: 1.9;
+  white-space: pre-wrap;
+}
+
+.page-controls {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1.5rem;
+  margin-top: 3rem;
+}
+
+.page-controls button {
+  min-width: 7rem;
+  padding: 0.65rem 1rem;
+  border: 1px solid #9d8975;
+  border-radius: 999px;
+  background: #fffdf9;
+  color: #53483e;
+  cursor: pointer;
+}
+
+.page-controls button:hover:not(:disabled) {
+  background: #b65d3b;
+  color: #fff;
+}
+
+.page-controls button:disabled {
+  cursor: not-allowed;
+  opacity: 0.35;
+}
+
+.tuijian-state {
+  display: grid;
+  min-height: 100%;
+  place-items: center;
+  color: #675b50;
+  font-size: 1rem;
+}
+
+.tuijian-error {
+  color: #a3442d;
+}
+
+/* 更新说明和卡片分开：后台工作时不遮盖上一期，刷新只读取已保存结果。 */
+.recommendation-info {
+  position: absolute;
+  top: 3.5rem;
+  right: clamp(1.25rem, 5vw, 5rem);
+  z-index: 10;
+}
+.recommendation-info-trigger {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  border: 1px solid #d7cbbd;
+  border-radius: 10px;
+  background: #fffdf9;
+  color: #615343;
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+.recommendation-info-trigger:hover,
+.recommendation-info-trigger[aria-expanded="true"] { background: #eee8de; }
+.recommendation-info button:focus-visible { outline: 2px solid #b65d3b; outline-offset: 3px; }
+/* 绝对定位让展开前后商品位置保持不变，内容过长时只滚动面板内部。 */
+.recommendation-details {
+  position: absolute;
+  top: calc(100% + 12px);
+  right: 0;
+  width: min(560px, calc(100vw - 2.5rem));
+  max-height: min(680px, calc(100dvh - 150px));
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  box-sizing: border-box;
+  padding: 20px;
+  border: 1px solid #ddd5c8;
+  border-radius: 16px;
+  background: #fffdf9;
+  box-shadow: 0 16px 48px #40312226;
+  font-size: 14px;
+}
+.recommendation-info-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 16px; }
+.recommendation-info-heading h2 { margin: 0; font-size: 16px; }
+.recommendation-info-close { width: 32px; height: 32px; border: 0; border-radius: 8px; background: #f1ede7; color: #615343; font-size: 24px; cursor: pointer; }
+.recommendation-details .recommendation-snapshot { padding: 0 0 18px; border: 0; border-bottom: 1px solid #e7dfd4; border-radius: 0; margin-bottom: 18px; }
+.recommendation-details .recommendation-evidence { margin: 0; padding: 0; border: 0; }
+.recommendation-details ul { padding-left: 20px; }
+.recommendation-details > :last-child { margin-bottom: 0; }
+.recommendation-snapshot {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 16px;
+  padding: 18px;
+  margin-bottom: 28px;
+  border: 1px solid #ddd5c8;
+  border-radius: 12px;
+  background: #fffdf9;
+  font-size: 14px;
+}
+.recommendation-snapshot p { margin: 7px 0 0; line-height: 1.6; color: #70685e; }
+.recommendation-snapshot .recommendation-job-error { color: #9c5638; }
+.recommendation-snapshot button { padding: 9px 14px; border: 1px solid #c9b8a5; border-radius: 8px; background: #fff; cursor: pointer; color: #514a42; }
+.recommendation-snapshot button:disabled { opacity: .6; cursor: wait; }
+.recommendation-empty { padding: 36px 0; line-height: 1.8; color: #70685e; }
+
+/* 故障展示仍属于推荐页；只有首次失败才显示居中卡片，部分失败不遮住真实商品。 */
+.recommendation-error { max-width: 520px; text-align: center; line-height: 1.7; }
+.recommendation-error button, .recommendation-retry, .recommendation-notice button {
+  padding: 9px 15px; border: 1px solid #9d8975; border-radius: 8px;
+  color: #53483e; background: #fffdf9; cursor: pointer;
+}
+.recommendation-retry { margin-top: 14px; }
+.recommendation-notice { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; color: #805837; }
+.tuijian button:disabled { opacity: .5; cursor: wait; }
+
+@media (max-width: 900px) {
+  .category-products {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 560px) {
+  .tuijian {
+    padding: 2rem 1rem 3rem;
+  }
+
+  .category-heading {
+    margin-bottom: 1.5rem;
+    padding-right: 0;
+  }
+
+  .tuijian { padding-top: 5rem; }
+  .recommendation-info { top: 1rem; right: 1rem; }
+  .recommendation-details { width: calc(100vw - 2rem); max-height: calc(100dvh - 100px); padding: 16px; }
+
+  .category-products {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.75rem;
+  }
+
+  .ai-analysis {
+    margin-top: 2rem;
+    padding: 1rem;
+  }
+
+  .page-controls {
+    gap: 0.75rem;
+    margin-top: 2rem;
+  }
+}
+
+/* 证据说明支持小屏换行，长来源链接不挤破商品布局。 */
+.recommendation-evidence { padding: 18px; margin: 18px 0; border: 1px solid #e4e6eb; border-radius: 12px; line-height: 1.7; overflow-wrap: anywhere; }
+.recommendation-evidence p, .recommendation-evidence ul { margin: 8px 0; }
+.recommendation-evidence a, .ai-analysis a { color: #3565a8; overflow-wrap: anywhere; }

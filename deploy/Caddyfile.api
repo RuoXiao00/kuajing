@@ -1,0 +1,11 @@
+# API_DOMAIN 填 api.你的域名；Caddy 自动申请和续期 HTTPS 证书。
+{$API_DOMAIN} {
+    encode gzip
+    # CORS 统一交给 FastAPI，避免网关和后端添加两份冲突的响应头。
+    reverse_proxy api:8000 {
+        # 知识库是 SSE 流式回答，收到一段就转发一段。
+        flush_interval -1
+        # 覆盖客户端伪造的转发地址；后端不映射公网 8000 端口。
+        header_up X-Forwarded-For {remote_host}
+    }
+}

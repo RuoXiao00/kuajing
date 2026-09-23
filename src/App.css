@@ -1,0 +1,523 @@
+html,
+body,
+#root {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  font-family: system-ui, "PingFang SC", "Microsoft YaHei", sans-serif;
+}
+
+* { box-sizing: border-box; }
+
+:root {
+  --app-sidebar-expanded: 280px;
+  --app-sidebar-collapsed: 68px;
+  --app-border: #e1e7e2;
+  --app-green: #18775a;
+  --app-green-dark: #105c45;
+}
+
+/* 全站桌面框架：第一列是导航，第二列是当前路由页面。minmax(0, 1fr)
+   允许聊天内容收缩，避免长 Markdown 把整个页面撑出横向滚动。 */
+.App {
+  display: grid;
+  grid-template-columns: var(--app-sidebar-expanded) minmax(0, 1fr);
+  width: 100%;
+  height: 100vh;
+  overflow: hidden;
+  transition: grid-template-columns .24s ease;
+}
+
+.App.nav-collapsed { grid-template-columns: var(--app-sidebar-collapsed) minmax(0, 1fr); }
+
+/* 左侧导航是纵向 flex；会话列表获得剩余高度并独立滚动。 */
+.router-header {
+  /* 颜色只声明在侧栏内部，不污染推荐、知识库正文和管理员页面的主题。 */
+  --nav-text: #2f2e2a;
+  --nav-muted: #79766e;
+  --nav-hover: #eceae4;
+  --nav-selected: #e7e5df;
+  position: relative;
+  z-index: 30;
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+  flex-direction: column;
+  padding: 16px 12px 12px;
+  border-right: 1px solid #dfddd5;
+  color: var(--nav-text);
+  background: #f4f3ef;
+  font-size: 14px;
+}
+
+.router-brand {
+  display: flex;
+  min-height: 48px;
+  align-items: center;
+  gap: 11px;
+  padding: 0 6px 12px;
+  overflow: hidden;
+}
+
+.logo {
+  display: block;
+  flex: none;
+  width: 38px;
+  height: 38px;
+  overflow: hidden;
+  border-radius: 10px;
+  object-fit: cover;
+}
+
+.brand-name {
+  overflow: hidden;
+  color: var(--nav-text);
+  font-family: Georgia, "Songti SC", serif;
+  font-size: 18px;
+  white-space: nowrap;
+}
+
+.sidebar-collapse-button {
+  position: absolute;
+  z-index: 2;
+  top: 27px;
+  right: -13px;
+  display: grid;
+  width: 26px;
+  height: 26px;
+  place-items: center;
+  border: 1px solid #dfddd5;
+  border-radius: 50%;
+  color: var(--nav-muted);
+  background: #f4f3ef;
+  cursor: pointer;
+}
+
+.router-nav {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.nav-item {
+  display: grid;
+  flex: none;
+  grid-template-columns: 24px minmax(0, 1fr) 20px;
+  min-height: 43px;
+  align-items: center;
+  gap: 10px;
+  padding: 5px 10px;
+  border: 0;
+  border-radius: 8px;
+  color: var(--nav-text);
+  background: transparent;
+  text-decoration: none;
+  transition: background-color .18s ease, color .18s ease;
+}
+
+.router-header .nav-item:hover {
+  color: var(--nav-text);
+  background: var(--nav-hover);
+}
+
+.router-header .nav-item.active { color: var(--nav-text); background: var(--nav-selected); font-weight: 600; }
+
+.nav-icon {
+  display: grid;
+  width: 24px;
+  height: 24px;
+  place-items: center;
+  border-radius: 9px;
+  color: var(--nav-muted);
+  background: transparent;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.nav-item.active .nav-icon {
+  color: var(--nav-text);
+  background: transparent;
+}
+
+.nav-label { overflow: hidden; white-space: nowrap; }
+.nav-caret { display: grid; place-items: center; color: var(--nav-muted); }
+.nav-caret svg { width: 16px; height: 16px; }
+
+.knowledge-nav-group {
+  display: flex;
+  min-height: 0;
+  flex: none;
+  flex-direction: column;
+}
+
+.knowledge-nav-group.open { flex: 1; }
+
+/* 该面板由 App.jsx 在知识库按钮下方条件渲染，不是第二个页面侧栏。 */
+.knowledge-conversation-panel {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  flex-direction: column;
+  margin: 6px 0 8px 21px;
+  padding: 3px 0 3px 10px;
+  overflow: hidden;
+  border: 0;
+  border-left: 1px solid #dfddd5;
+  border-radius: 0;
+  background: transparent;
+  animation: knowledge-panel-in .18s ease-out;
+}
+
+@keyframes knowledge-panel-in {
+  from { opacity: 0; transform: translateY(-5px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.router-header .conversation-brand {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 0 4px 12px;
+}
+
+.router-header .brand-mark {
+  display: grid;
+  flex: none;
+  width: 32px;
+  height: 32px;
+  place-items: center;
+  border-radius: 9px 4px 9px 4px;
+  color: #fff;
+  background: var(--app-green);
+  font-family: Georgia, "Songti SC", serif;
+}
+
+.router-header .conversation-brand strong {
+  display: block;
+  color: #1d2b23;
+  font-size: 13px;
+}
+
+.router-header .conversation-brand small {
+  display: block;
+  margin-top: 1px;
+  color: #829088;
+  font-size: 8px;
+  letter-spacing: .11em;
+}
+
+.router-header .new-chat-button {
+  display: flex;
+  width: 100%;
+  min-height: 39px;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 6px;
+  flex-shrink: 0;
+  padding: 7px 9px;
+  border: 0;
+  border-radius: 7px;
+  color: var(--nav-text);
+  background: transparent;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.router-header .new-chat-button:hover { background: var(--nav-hover); }
+.router-header .new-chat-button span { font-size: 18px; }
+
+.router-header .conversation-label {
+  margin: 14px 5px 7px;
+  color: var(--nav-muted);
+  font-size: 11px;
+  letter-spacing: .05em;
+}
+
+.router-header .conversation-list {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  flex-direction: column;
+  gap: 3px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: #ccc9c0 transparent;
+}
+
+.router-header .conversation-item {
+  display: grid;
+  flex: none;
+  grid-template-columns: minmax(0, 1fr) 27px;
+  align-items: center;
+  gap: 2px;
+  padding: 3px;
+  border-radius: 9px;
+}
+
+.router-header .conversation-item:hover,
+.router-header .conversation-item.active {
+  background: var(--nav-hover);
+  box-shadow: none;
+}
+
+.router-header .conversation-item.active { background: var(--nav-selected); box-shadow: none; }
+
+.conversation-select {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: 19px minmax(0, 1fr);
+  align-items: center;
+  gap: 6px;
+  padding: 7px 5px;
+  border: 0;
+  color: var(--nav-text);
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+}
+
+.router-header .conversation-title {
+  overflow: hidden;
+  font-size: 13px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.router-header .delete-conversation {
+  display: grid;
+  /* opacity 隐藏但仍可 Tab 聚焦；visibility:hidden 会让键盘永远到不了按钮。 */
+  visibility: visible; /* 覆盖聊天旧样式的 hidden，否则仅改 opacity 仍无法获得焦点。 */
+  opacity: 0;
+  width: 25px;
+  height: 25px;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: 7px;
+  color: var(--nav-muted);
+  background: transparent;
+  font-size: 17px;
+  cursor: pointer;
+}
+
+.router-header .conversation-item:hover .delete-conversation,
+.router-header .conversation-item.active .delete-conversation,
+.router-header .conversation-item:focus-within .delete-conversation { opacity: 1; }
+.router-header .conversation-icon svg, .router-header .delete-conversation svg { width: 16px; height: 16px; }
+
+.router-header .delete-conversation:hover { color: #a13e34; background: #fbecea; }
+
+.sidebar-storage-warning {
+  margin: 7px 0 0;
+  padding: 7px 8px;
+  border-radius: 7px;
+  color: #885b24;
+  background: #fff5df;
+  font-size: 9px;
+  line-height: 1.5;
+}
+
+.router-header .privacy-note {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-top: 8px;
+  flex-shrink: 0;
+  padding: 8px 5px 0;
+  border: 0;
+  border-radius: 0;
+  color: var(--nav-muted);
+  background: transparent;
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.router-header .privacy-note strong { color: var(--nav-muted); font-size: 11px; font-weight: 500; }
+
+.account-settings {
+  display: flex;
+  flex: none;
+  min-height: 45px;
+  align-items: center;
+  margin-top: 7px;
+  padding: 5px 8px;
+  overflow: hidden;
+  border: 1px solid transparent;
+  border-top-color: #dfddd5;
+  border-radius: 8px;
+  color: var(--nav-text);
+  text-decoration: none;
+}
+
+.account-settings.active,
+.account-settings:hover { color: var(--nav-text); background: var(--nav-hover); }
+
+.account-avatar {
+  flex: none;
+  width: 30px;
+  height: 30px;
+  margin-right: 9px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.account-nickname {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.account-icon { margin-left: 6px; color: var(--nav-muted); font-size: 11px; }
+
+/* 焦点用于键盘定位；触屏没有 hover，所以直接展示删除入口。 */
+.router-header :is(a, button):focus-visible { outline: 2px solid #79766e; outline-offset: 2px; }
+@media (hover: none) { .router-header .delete-conversation { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) {
+  .App, .router-header, .router-header .nav-item { transition: none; }
+  .knowledge-conversation-panel { animation: none; }
+}
+
+.router-content {
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+  overflow: auto;
+}
+
+/* 桌面折叠态只隐藏文字和会话面板，保留图标作为导航入口。 */
+.nav-collapsed .router-header { padding-inline: 10px; }
+.nav-collapsed .router-brand { justify-content: center; padding-inline: 0; }
+.nav-collapsed .brand-name,
+.nav-collapsed .nav-label,
+.nav-collapsed .nav-caret,
+.nav-collapsed .account-nickname,
+.nav-collapsed .account-icon,
+.nav-collapsed .knowledge-conversation-panel { display: none; }
+.nav-collapsed .knowledge-nav-group.open { flex: none; }
+.nav-collapsed .nav-item { grid-template-columns: 1fr; justify-items: center; padding-inline: 5px; }
+.nav-collapsed .account-settings { justify-content: center; padding-inline: 5px; }
+.nav-collapsed .account-avatar { margin: 0; }
+
+.mobile-nav-toggle,
+.mobile-nav-close,
+.navigation-backdrop { display: none; }
+
+.admin-shell { width: 100%; min-height: 100vh; }
+.settings-page { padding: 2vw; color: #333; }
+
+/* React 页面级错误边界的替代界面，必须独立于具体路由样式。 */
+.app-error-fallback {
+  display: grid;
+  width: 100%;
+  min-height: 100vh;
+  place-items: center;
+  padding: 24px;
+  color: #26342c;
+  background: #f5f7f4;
+}
+
+.app-error-fallback > div {
+  max-width: 560px;
+  padding: 28px;
+  border: 1px solid #dce4df;
+  border-radius: 16px;
+  background: #fff;
+  box-shadow: 0 18px 50px rgba(28, 55, 41, .1);
+}
+
+.app-error-fallback strong { font-size: 19px; }
+.app-error-fallback p { color: #68736c; line-height: 1.7; }
+.app-error-fallback > div > div { display: flex; flex-wrap: wrap; gap: 9px; }
+.app-error-fallback button {
+  padding: 9px 14px;
+  border: 1px solid var(--app-green);
+  border-radius: 9px;
+  color: #fff;
+  background: var(--app-green);
+  cursor: pointer;
+}
+.app-error-fallback button.secondary { color: var(--app-green-dark); background: #fff; }
+
+@media (max-width: 680px) {
+  /* 手机端不使用 68px 图标栏，而把完整导航变成屏幕外抽屉；
+     mobile-nav-open 负责滑入，同时显示覆盖主内容的 backdrop。 */
+  .App,
+  .App.nav-collapsed { display: block; }
+
+  .router-header {
+    position: fixed;
+    inset: 0 auto 0 0;
+    width: min(86vw, 320px);
+    transform: translateX(-105%);
+    transition: transform .22s ease;
+  }
+
+  .mobile-nav-open .router-header { transform: translateX(0); }
+
+  .mobile-nav-toggle {
+    position: fixed;
+    z-index: 24;
+    top: 13px;
+    left: 12px;
+    display: grid;
+    width: 38px;
+    height: 38px;
+    place-items: center;
+    border: 1px solid #dbe4de;
+    border-radius: 10px;
+    color: #314139;
+    background: rgba(255, 255, 255, .94);
+    box-shadow: 0 7px 20px rgba(28, 55, 41, .1);
+    cursor: pointer;
+  }
+
+  .navigation-backdrop {
+    position: fixed;
+    z-index: 25;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    border: 0;
+    background: rgba(21, 32, 26, .32);
+  }
+
+  .mobile-nav-open .navigation-backdrop { display: block; }
+  .sidebar-collapse-button { display: none; }
+
+  .mobile-nav-close {
+    position: absolute;
+    top: 22px;
+    right: 14px;
+    z-index: 2;
+    display: grid;
+    width: 30px;
+    height: 30px;
+    place-items: center;
+    border: 0;
+    border-radius: 8px;
+    color: var(--nav-muted);
+    background: var(--nav-hover);
+    font-size: 20px;
+    cursor: pointer;
+  }
+
+  .nav-collapsed .router-header { padding-inline: 12px; }
+  .nav-collapsed .router-brand { justify-content: flex-start; padding-inline: 6px; }
+  .nav-collapsed .brand-name,
+  .nav-collapsed .nav-label,
+  .nav-collapsed .nav-caret,
+  .nav-collapsed .account-nickname,
+  .nav-collapsed .account-icon { display: initial; }
+  .nav-collapsed .knowledge-conversation-panel { display: flex; }
+  .nav-collapsed .knowledge-nav-group.open { flex: 1; }
+  .nav-collapsed .nav-item { grid-template-columns: 24px minmax(0, 1fr) 20px; justify-items: initial; padding-inline: 10px; }
+  .nav-collapsed .account-settings { justify-content: initial; padding-inline: 8px; }
+  .nav-collapsed .account-avatar { margin-right: 9px; }
+  .router-content { width: 100%; height: 100%; }
+}

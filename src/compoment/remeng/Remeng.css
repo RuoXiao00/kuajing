@@ -1,0 +1,71 @@
+/* 本页自行滚动：全局框架隐藏了溢出，不能依赖 body 展示后面的商品。 */
+.rm {
+  height: 100%;
+  width: 100%;
+  overflow-y: auto;
+  color: #302e2a;
+  background: #faf9f6;
+  padding: 24px;
+}
+
+.rm1 { margin-bottom: 20px; }
+.rm1_1 { display: flex; align-items: center; flex-wrap: wrap; gap: 16px; }
+.rm1_1 h1 { margin: 0; font-size: 24px; }
+.rm-mode { display: flex; gap: 6px; }
+.rm .rm-refresh { margin-left: auto; }
+.rm-description { color: #706b63; font-size: 14px; line-height: 1.7; }
+.rm-exchange-note { color: #706b63; font-size: 13px; line-height: 1.8; }
+.rm-exchange-note a { color: #18775a; text-underline-offset: 3px; }
+.rm-exchange-note button { margin-left: 8px; padding: 4px 10px; }
+
+/* 品类换行比固定百分比高度更稳定，缩窄窗口时不会把按钮挤出页面。 */
+.rm1_2 { display: flex; flex-wrap: wrap; gap: 8px; padding: 14px 0; border-block: 1px solid #e5e1d9; }
+.rm button {
+  border: 1px solid #dcd7cf;
+  border-radius: 8px;
+  padding: 9px 14px;
+  font: inherit;
+  font-size: 14px;
+  color: #514c44;
+  background: #fff;
+  cursor: pointer;
+}
+.rm button:hover:not(:disabled) { background: #eeece6; }
+.rm button.is-active { background: #343e36; border-color: #343e36; color: #fff; }
+.rm button.is-active:hover { background: #465249; }
+.rm button:disabled { opacity: .55; cursor: wait; }
+.rm button:focus-visible, .rm a:focus-visible, .rm summary:focus-visible { outline: 2px solid #18775a; outline-offset: 3px; }
+
+.rm-summary { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; margin-bottom: 12px; font-size: 13px; color: #706b63; }
+.rm-notice { margin-bottom: 18px; padding: 12px 16px; border: 1px solid #e5dfd1; border-radius: 10px; background: #f3f0e8; font-size: 13px; line-height: 1.7; overflow-wrap: anywhere; }
+.rm-notice summary { cursor: pointer; }
+.rm-notice ul { padding-left: 20px; margin-bottom: 0; }
+.rm-status { padding: 48px 16px; text-align: center; color: #706b63; line-height: 1.8; }
+.rm-error { color: #a2382d; }
+/* 留出稳定的底部观察区域，翻页只改变这里的状态，不清空或遮挡已有卡片。 */
+.rm-load-more { min-height: 112px; padding: 24px 16px; text-align: center; color: #706b63; font-size: 14px; line-height: 1.7; }
+.rm-load-more p { margin: 0 0 12px; }
+.rm-load-more [role="alert"] { color: #a2382d; }
+
+/* 卡片按可用宽度自动排成多列；不再固定 20vw 高度，长标题和价格不会被裁掉。
+   商品类名使用 rm- 前缀，避免旧的全局 .im 样式影响其他页面。 */
+.rm2 { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 240px), 1fr)); gap: 18px; }
+.rm .rm-product { min-width: 0; overflow: hidden; display: flex; flex-direction: column; border: 1px solid #e5e1d9; border-radius: 12px; background: #fff; }
+.rm-product-image { height: 210px; padding: 18px; }
+.rm-product-image img { width: 100%; height: 100%; object-fit: contain; }
+.rm-image-placeholder { height: 100%; display: grid; place-items: center; background: #f5f3ee; border-radius: 8px; color: #8a8377; font-size: 14px; }
+.rm-product-body { flex: 1; display: flex; flex-direction: column; align-items: flex-start; gap: 10px; padding: 16px; overflow-wrap: anywhere; }
+.rm-product-body h2 { margin: 0; font-size: 15px; line-height: 1.6; font-weight: 600; }
+.rm-product-body p { margin: 0; color: #706b63; font-size: 13px; line-height: 1.6; }
+.rm-product-body .rm-price { color: #302e2a; font-size: 19px; font-weight: 600; }
+.rm-product-price { display: grid; gap: 5px; }
+.rm-product-body .rm-rate-note { font-size: 12px; color: #80796e; }
+.rm-product-body a { margin-top: auto; padding-top: 6px; color: #18775a; font-size: 14px; text-underline-offset: 3px; }
+
+@media (max-width: 680px) {
+  .rm { padding: 16px; }
+  .rm1_1 { gap: 10px; }
+  /* 左上角有全局导航按钮，给标题留出空间，避免手机上互相遮挡。 */
+  .rm1_1 h1 { width: 100%; padding-left: 44px; min-height: 32px; font-size: 22px; }
+  .rm button { padding: 8px 11px; }
+}

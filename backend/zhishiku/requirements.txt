@@ -1,0 +1,30 @@
+# 本知识库模块当前已验证通过的版本组合。
+# FastAPI 与 Starlette 必须成组升级；不要只单独升级其中一个。
+fastapi==0.141.1
+starlette==1.6.0
+uvicorn==0.32.1
+
+# RAG / LangGraph 相关依赖。
+langchain-community==0.4.2
+langchain-chroma==1.1.0
+langchain-text-splitters==1.1.2
+langgraph==1.2.5
+chromadb==1.5.9
+dashscope==1.22.2
+python-dotenv==1.2.3
+
+# 管理接口、安全 Cookie 与 multipart 文件上传。
+python-multipart==0.0.20
+bcrypt==5.0.0
+itsdangerous==2.2.0
+
+# 知识文件解析。扫描版 PDF 不做 OCR。
+python-docx==1.1.2
+pypdf==5.1.0
+requests==2.33.1
+Pillow==12.2.0
+
+# 统一应用的每日推荐复用本机亚马逊爬虫；浏览器模式还需要本机 Chrome。
+# 这里只声明已验证的依赖版本，不修改模型配置，也不接入第三方抓取服务。
+beautifulsoup4==4.14.3
+playwright==1.63.0

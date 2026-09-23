@@ -1,0 +1,51 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+node_modules
+dist
+dist-ssr
+*.local
+.env
+backend/tuijian/runtime/
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+backend/remen/runtime/
+backend/tupian/runtime/
+
+# 部署配置保留示例，真实密钥、数据和备份只留在各自机器。
+.env.*
+!.env.example
+*.env
+*.env.*
+!*.env.example
+server-data/
+backups/
+# 本机生成的上传包可随时重建，不提交压缩包或包内副本。
+release/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+venv/
+backend/**/runtime/
+backend/**/runtime-backup*/
+docs/verification/
+# 原始资料与扫描报告不属于运行源码，迁移时通过加密连接单独复制。
+亚马逊知识大纲/
+amazon-outline-prescan.json

@@ -1,0 +1,45 @@
+# 与本机 Python 主版本保持一致；使用服务器已成功拉取的官方 ECR 镜像入口。
+FROM public.ecr.aws/docker/library/python:3.13-slim-bookworm
+ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 \
+    PLAYWRIGHT_BROWSERS_PATH=/ms-playwright \
+    AMAZON_BROWSER_CHANNEL=chromium AMAZON_FETCH_MODE=browser TZ=Asia/Shanghai
+WORKDIR /app
+COPY backend/requirements.txt backend/requirements.txt
+COPY backend/zhishiku/requirements.txt backend/zhishiku/requirements.txt
+# 阿里云 ECS 从默认 PyPI 下载很慢时，使用阿里云 HTTPS 镜像。
+# 只改变构建时的下载入口，requirements 中固定的依赖版本保持不变。
+# 三步分别保存为镜像层：系统依赖或浏览器下载失败后，不必重装已完成的 Python 包。
+# cache mount 由 Docker BuildKit 管理，不进入最终镜像；中断重试也能复用下载缓存。
+RUN --mount=type=cache,target=/root/.cache/pip,sharing=locked \
+    pip install --index-url https://mirrors.aliyun.com/pypi/simple --timeout 120 -r backend/requirements.txt \
+    && pip check
+
+# 这里改的是容器内 Debian 软件源，不是阿里云宿主机的系统源。
+# 同时兼容 deb822（.sources）和旧 .list，保留原来的发行版及签名验证配置。
+RUN set -eu; \
+    for source in /etc/apt/sources.list /etc/apt/sources.list.d/*.sources /etc/apt/sources.list.d/*.list; do \
+        if [ -f "$source" ]; then \
+            sed -i -e 's|http://deb.debian.org|https://mirrors.aliyun.com|g' \
+                -e 's|https://deb.debian.org|https://mirrors.aliyun.com|g' \
+                -e 's|http://security.debian.org|https://mirrors.aliyun.com|g' \
+                -e 's|https://security.debian.org|https://mirrors.aliyun.com|g' "$source"; \
+        fi; \
+    done; \
+    python -m playwright install-deps chromium \
+    && rm -rf /var/lib/apt/lists/*
+
+# 爬虫使用无界面浏览器，且 chromium 配置不传 channel 参数，只安装所需 headless shell。
+# 浏览器仍取自 Playwright 官方下载源；无需再下载一份当前代码不会用到的完整 Chromium。
+RUN PLAYWRIGHT_DOWNLOAD_CONNECTION_TIMEOUT=120000 python -m playwright install --only-shell chromium \
+    && chmod -R a+rX /ms-playwright
+COPY backend/ backend/
+# 非 root 用户运行；宿主机的四个数据目录也须归 UID 10001 所有。
+RUN useradd --create-home --uid 10001 appuser \
+    && mkdir -p backend/zhishiku/runtime backend/tuijian/runtime backend/remen/runtime backend/tupian/runtime \
+    && chown -R appuser:appuser /app
+USER appuser
+EXPOSE 8000
+# 容器必须监听所有网卡。只跑一个 worker，避免生命周期里的定时任务重复启动。
+# Caddy 方案不发布 API 端口；宝塔方案仅绑定 127.0.0.1:18000，交给宿主 Nginx 转发。
+# 代理协议头让图片会话正确识别 HTTPS 并使用 Secure Cookie；不要再公开 8000。
+CMD ["python", "-m", "uvicorn", "backend.app:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "1", "--proxy-headers", "--forwarded-allow-ips", "*"]

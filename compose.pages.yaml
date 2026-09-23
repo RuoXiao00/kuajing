@@ -1,0 +1,32 @@
+# 独立使用：sudo docker compose -f compose.pages.yaml up -d --build
+# 前端由 GitHub Pages 构建，这里只启动后端和 HTTPS 入口，不启动原 web 服务。
+name: kuajing-pages
+services:
+  api:
+    extends:
+      file: compose.yaml
+      service: api
+  gateway:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    env_file:
+      - path: ./deploy/api.env
+        format: raw
+    depends_on:
+      api:
+        condition: service_healthy
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./deploy/Caddyfile.api:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+volumes:
+  caddy_data:
+  caddy_config:

@@ -1,0 +1,20 @@
+{$SITE_ADDRESS} {
+    # 当前应用没有完整的普通用户登录/计费系统，公网先保护整个站点。
+    # 这层访问密码与知识库管理员密码是两套独立凭据。
+    basic_auth {
+        {$SITE_USER} {$SITE_PASSWORD_HASH}
+    }
+    encode gzip
+    @api path /api/* /tuijian/agentcall
+    handle @api {
+        reverse_proxy api:8000 {
+            flush_interval -1
+            header_up X-Forwarded-For {remote_host}
+        }
+    }
+    handle {
+        root * /srv
+        try_files {path} /index.html
+        file_server
+    }
+}

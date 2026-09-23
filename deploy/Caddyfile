@@ -1,0 +1,18 @@
+# 默认只由 Compose 映射到服务器回环地址，先通过 SSH 隧道验收。
+:80 {
+    encode gzip
+    @api path /api/* /tuijian/agentcall
+    handle @api {
+        reverse_proxy api:8000 {
+            # 立即转发知识库 SSE 内容，防止回答积攒到最后才显示。
+            flush_interval -1
+            header_up X-Forwarded-For {remote_host}
+        }
+    }
+    handle {
+        root * /srv
+        # React Router 页面刷新时返回 index.html，API 不走这个兜底。
+        try_files {path} /index.html
+        file_server
+    }
+}

@@ -1,0 +1,52 @@
+name: kuajing
+services:
+  api:
+    build:
+      context: .
+      dockerfile: deploy/Dockerfile.api
+    # raw 保留 bcrypt 哈希中的 $，需要 Docker Compose 2.30.0 或更新版本。
+    env_file:
+      - path: ./deploy/backend.env
+        format: raw
+    init: true
+    restart: unless-stopped
+    shm_size: 1gb
+    stop_grace_period: 2m
+    volumes:
+      - ./server-data/knowledge:/app/backend/zhishiku/runtime
+      - ./server-data/recommendations:/app/backend/tuijian/runtime
+      - ./server-data/products:/app/backend/remen/runtime
+      - ./server-data/images:/app/backend/tupian/runtime
+    # 不映射 8000 到公网，只允许同一 Docker 网络中的 web 访问。
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/', timeout=5).read()"]
+      interval: 30s
+      timeout: 10s
+      start_period: 60s
+      retries: 5
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+  web:
+    build:
+      context: .
+      dockerfile: deploy/Dockerfile.web
+    restart: unless-stopped
+    depends_on:
+      api:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:8080:80"
+    volumes:
+      - caddy_data:/data
+      - caddy_config:/config
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+volumes:
+  caddy_data:
+  caddy_config:
