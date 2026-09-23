@@ -49,3 +49,13 @@ docs/verification/
 # 原始资料与扫描报告不属于运行源码，迁移时通过加密连接单独复制。
 亚马逊知识大纲/
 amazon-outline-prescan.json
+
+# 公开文档仅保留项目运行、部署和界面说明；个人学习与交接资料留在本地。
+/docs/*
+!/docs/baota-upload-steps.md
+!/docs/github-docker-deployment-tutorial.md
+!/docs/github-pages-cloud-tutorial.md
+!/docs/image-studio.md
+!/docs/local-development.md
+!/docs/pages-auto-connect.md
+!/docs/screenshots/

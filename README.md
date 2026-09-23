@@ -133,6 +133,4 @@ npm run build:demo
 | `backend/tupian/` | Coze 调用、图片任务与原图存档 |
 | `deploy/` / `.github/workflows/` | Docker、反向代理与 Pages 发布 |
 
-学习文档：[RAG 代码教程](docs/zhishiku-code-tutorial.md) · [开发者教程](docs/zhishiku-developer-tutorial.md) · [阅读指南](docs/zhishiku-learning-guide.md)
-
 公开仓库仅包含源码、配置模板与展示样例；真实密钥、知识资料、数据库、用户图片和运行日志不提交。

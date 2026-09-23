@@ -14,6 +14,10 @@ ROOT_FILES = {".gitignore", ".dockerignore", ".env.example", ".oxlintrc.json", "
               "index.html", "package.json", "package-lock.json", "vite.config.js",
               "compose.yaml", "compose.https.yaml", "compose.pages.yaml", "compose.baota.yaml"}
 TREES = {"src", "public", "backend", "deploy", "docs", "scripts", ".github"}
+# 手工打包不读取 gitignore，因此公开文档还必须在这里单独限定。
+PUBLIC_DOCS = {"baota-upload-steps.md", "github-docker-deployment-tutorial.md",
+               "github-pages-cloud-tutorial.md", "image-studio.md", "local-development.md",
+               "pages-auto-connect.md"}
 EXTENSIONS = {".py", ".js", ".jsx", ".css", ".json", ".mjs", ".md", ".txt", ".yaml", ".yml",
               ".sh", ".ps1", ".example", ".conf", ".jpg", ".jpeg", ".png", ".svg", ".webp", ".ico"}
 TEXT_EXTENSIONS = EXTENSIONS - {".jpg", ".jpeg", ".png", ".webp", ".ico"}
@@ -30,6 +34,11 @@ def allowed(path):
     if rel.as_posix() in ROOT_FILES:
         return True
     if rel.parts[0] not in TREES:
+        return False
+    if rel.parts[0] == "docs" and not (
+        len(rel.parts) == 2 and rel.name in PUBLIC_DOCS
+        or len(rel.parts) == 3 and rel.parts[1] == "screenshots" and path.suffix == ".png"
+    ):
         return False
     if (path.name.startswith(".env") or ".env" in path.name) and not path.name.endswith(".example"):
         return False
