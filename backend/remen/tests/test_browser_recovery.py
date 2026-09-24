@@ -97,6 +97,22 @@ def test_captcha_still_stops_and_cools_down(browser):
     sleep.assert_not_called()
 
 
+@pytest.mark.parametrize('html', [
+    '<title>Robot Check</title><p>Verification</p>',
+    '<p>To discuss automated access to Amazon data please contact us.</p>',
+])
+def test_http_200_block_page_without_captcha_input_is_not_retried(browser, html):
+    tab, sleep = browser
+    tab.content.return_value = html
+    crawler = AmazonCrawler(allow_regional_redirects=True)
+    with pytest.raises(CrawlError) as caught:
+        crawler.collect('fixture', 2, 200, 1, 'hot')
+    assert caught.value.code == 'amazon_blocked'
+    assert crawler._blocked_until > 0
+    assert tab.goto.call_count == 1
+    sleep.assert_not_called()
+
+
 def test_regional_next_link_must_stay_on_same_site():
     assert _next_search_url('<a class="s-pagination-next" href="https://evil.example/s?k=fixture&page=3">Next</a>', 'fixture', 2, 'https://www.amazon.co.jp') is None
     assert _next_search_url('<a class="s-pagination-next" href="https://www.amazon.com/s?k=fixture&page=3">Next</a>', 'fixture', 2, 'https://www.amazon.co.jp') is None

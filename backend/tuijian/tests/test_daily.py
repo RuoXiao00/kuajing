@@ -217,6 +217,8 @@ def test_graph_retry_only_failed_fetch_and_analysis(rec, monkeypatch):
     payload['categories'][4].update(analysis_status='failed', answer='')
     calls, model_calls = [], []
     class Crawler:
+        def __init__(self, **kwargs):
+            pass
         def collect(self, keyword, **kwargs):
             calls.append((keyword, kwargs))
             return SimpleNamespace(products=[rec.Product(asin='B999999999',title='real',url='https://www.amazon.com/dp/B999999999')],

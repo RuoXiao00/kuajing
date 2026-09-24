@@ -267,6 +267,49 @@ class CrawlError(Exception):
         self.code, self.message, self.status = code, message, status
 
 
+class CrawlCoordinator:
+    """同一进程共用亚马逊访问预算，避免热门页和每日推荐各自限流却合起来并发。
+
+    只共享锁、时间和冷却状态；各市场的商品缓存与 Cookie 仍由各爬虫独立维护。
+    RLock 允许同一线程在批次锁中继续取得单页锁，不跨线程共享 Playwright 对象。
+    """
+    def __init__(self):
+        self.lock = threading.RLock()
+        self.next_fetch_at = 0.0
+        self.blocked_until = 0.0
+
+    @contextmanager
+    def batch(self):
+        if not self.lock.acquire(timeout=BATCH_SOFT_TIMEOUT):
+            raise CrawlError("crawler_busy", "商品采集任务繁忙，请稍后再试。", 429)
+        try:
+            yield
+        finally:
+            self.lock.release()
+
+    @contextmanager
+    def request(self, wait=True):
+        with self.batch():
+            now = time.monotonic()
+            if now < self.blocked_until:
+                raise CrawlError("amazon_cooldown", "商品来源正在冷却，请稍后再试。", 503)
+            if now < self.next_fetch_at:
+                if not wait:
+                    raise CrawlError("crawl_interval", "两次真实抓取至少间隔三秒，请稍后再试。", 429)
+                time.sleep(self.next_fetch_at - now)
+            self.next_fetch_at = time.monotonic() + 3
+            try:
+                yield
+            except CrawlError as error:
+                if error.code == "amazon_blocked":
+                    self.blocked_until = time.monotonic() + 60
+                raise
+
+
+# 仅正式应用显式注入这一实例；离线测试和独立诊断默认使用各自预算，不相互污染。
+SHARED_AMAZON_ACCESS = CrawlCoordinator()
+
+
 def _config(name: str, default: str = "") -> str:
     """系统环境优先，其次只读项目 .env；不修改 os.environ 或任何文件。
 
@@ -411,13 +454,23 @@ def parse_amazon_html(html: str, source_url: str = AMAZON_URL) -> list[Product]:
     注意：亚马逊会改 DOM，选择器失效要修解析器，不能把“解析失败”谎报成无商品。
     """
     soup = BeautifulSoup(html, "html.parser")
-    if soup.select_one('#captchacharacters, form[action*="validateCaptcha"]') or "enter the characters you see below" in soup.get_text(" ", strip=True).lower():
-        raise CrawlError("amazon_blocked", "亚马逊要求验证码，已停止抓取；请使用获准的数据接口。", 503)
+    text = soup.get_text(" ", strip=True).lower()
+    title = soup.title.get_text(strip=True).lower() if soup.title else ""
+    # 有的限制页返回 HTTP 200 且不带验证码输入框；仍应停止并冷却，
+    # 不能把它当 DOM 变化后连续重试十几个类别。
+    if (soup.select_one('#captchacharacters, form[action*="validateCaptcha"]')
+            or "enter the characters you see below" in text
+            or "automated access to amazon data" in text or title == "robot check"):
+        raise CrawlError("amazon_blocked", "亚马逊返回访问验证或限制页面，已暂停采集。", 503)
     # 同时兼容两种布局，不能让一个未填充的主容器遮掉已经有内容的备用容器。
     cards = soup.select('[data-component-type="s-search-result"][data-asin], .s-result-item[data-asin]')
     if not cards:
-        if "did not match any products" in soup.get_text(" ", strip=True).lower():
+        if "did not match any products" in text:
             return []
+        # 只记录固定标记，不记录页面正文、Cookie、代理设置或带查询参数的地址。
+        LOGGER.warning("amazon_page_unrecognized bytes=%d continue_shopping=%s service_error=%s",
+                       len(html.encode("utf-8")), "continue shopping" in text,
+                       "something went wrong" in text)
         raise CrawlError("page_structure_changed", "没有识别到亚马逊商品卡片，可能被拦截或页面结构改变。", 503)
     result = []
     seen = set()
@@ -488,7 +541,8 @@ class AmazonCrawler:
     类实例中的缓存/Cookie 仅活到进程退出，不写文件，不碰正式业务数据库。
     """
 
-    def __init__(self, mode: str | None = None, *, allow_regional_redirects: bool = False):
+    def __init__(self, mode: str | None = None, *, allow_regional_redirects: bool = False,
+                 coordinator: CrawlCoordinator | None = None):
         self.provider = mode or _config("AMAZON_FETCH_MODE", "browser")
         if self.provider not in {"direct", "browser"}:
             raise ValueError("AMAZON_FETCH_MODE 只支持 browser 或 direct，两者都是本机直连")
@@ -502,13 +556,28 @@ class AmazonCrawler:
         # HTTP 批次也只放行一个，避免多个批次各留一个浏览器、轮流抢单页名额。
         self._batch_slots = threading.BoundedSemaphore(1)
         self._visits = OrderedDict()
-        self._next_fetch_at = 0.0
-        self._blocked_until = 0.0
+        self._access = coordinator if coordinator is not None else CrawlCoordinator()
         self._browser_state = None
         self.allow_regional_redirects = allow_regional_redirects
         self._marketplace_url = AMAZON_URL
         # 跨 HTTP 请求保留已校验的下一页链接。滚动一次就是一次请求，不能只放闭包里。
         self._next_urls = OrderedDict()
+
+    @property
+    def _next_fetch_at(self):
+        return self._access.next_fetch_at
+
+    @_next_fetch_at.setter
+    def _next_fetch_at(self, value):
+        self._access.next_fetch_at = value
+
+    @property
+    def _blocked_until(self):
+        return self._access.blocked_until
+
+    @_blocked_until.setter
+    def _blocked_until(self, value):
+        self._access.blocked_until = value
 
     def _accept_browser_url(self, url: str) -> None:
         base = _marketplace_base(url)
@@ -705,20 +774,13 @@ class AmazonCrawler:
         if not self._slots.acquire(blocking=False):
             raise CrawlError("crawler_busy", "已有抓取任务正在处理，请稍后再试。", 429)
         try:
-            now = time.monotonic()
-            if now < self._blocked_until:
-                raise CrawlError("amazon_cooldown", "亚马逊刚刚限制访问，正在冷却，请一分钟后再试。", 503)
-            if now < self._next_fetch_at:
-                if not wait_for_interval:
-                    raise CrawlError("crawl_interval", "两次真实抓取至少间隔三秒，请稍后再试。", 429)
-                time.sleep(self._next_fetch_at - now)
-            self._next_fetch_at = time.monotonic() + 3
-            if self.provider == "browser":
-                download = browser_downloader or self._download_browser
-                raw = download(keyword, page)
-            else:
-                raw = self._download(keyword, page)
-            products = parse_amazon_html(raw.decode("utf-8", errors="replace"), self._marketplace_url)
+            with self._access.request(wait=wait_for_interval):
+                if self.provider == "browser":
+                    download = browser_downloader or self._download_browser
+                    raw = download(keyword, page)
+                else:
+                    raw = self._download(keyword, page)
+                products = parse_amazon_html(raw.decode("utf-8", errors="replace"), self._marketplace_url)
             fetched_at = datetime.now(timezone.utc).isoformat()
             with self._lock:
                 self._cache[key] = (time.monotonic() + 300, copy.deepcopy(products), fetched_at)
@@ -726,10 +788,6 @@ class AmazonCrawler:
                 while len(self._cache) > 64:
                     self._cache.popitem(last=False)
             return products, fetched_at, False
-        except CrawlError as error:
-            if error.code == "amazon_blocked":
-                self._blocked_until = time.monotonic() + 60
-            raise
         finally:
             self._slots.release()
 
@@ -744,7 +802,7 @@ class AmazonCrawler:
         if not self._batch_slots.acquire(blocking=False):
             raise CrawlError("crawler_busy", "已有批量抓取正在进行，请等待完成后再发起新请求。", 429)
         try:
-            with ExitStack() as resources:
+            with self._access.batch(), ExitStack() as resources:
                 shared_download = None
 
                 def download(keyword: str, page: int) -> bytes:
@@ -972,7 +1030,8 @@ def create_app(crawler: AmazonCrawler | None = None, *, snapshot_path=None, sche
 
     application = FastAPI(title="跨境阁：亚马逊商品抓取", version="1.0.0", lifespan=lifespan)
     application.state.first_pages = FirstPageStore(snapshot_path) if snapshot_path is not None else None
-    application.state.amazon_crawler = crawler if crawler is not None else AmazonCrawler(allow_regional_redirects=True)
+    application.state.amazon_crawler = crawler if crawler is not None else AmazonCrawler(
+        allow_regional_redirects=True, coordinator=SHARED_AMAZON_ACCESS)
     origins = [origin.strip().rstrip("/") for origin in _config(
         "FRONTEND_ORIGINS", "http://localhost:5173,http://127.0.0.1:5173"
     ).split(",") if origin.strip()]

@@ -24,7 +24,7 @@ from langgraph.graph import StateGraph, START, END
 from langchain.messages import HumanMessage
 
 from fastapi import APIRouter, HTTPException, Query, Request
-from backend.remen.pachon import AmazonCrawler, CrawlError, Product
+from backend.remen.pachon import AmazonCrawler, CrawlError, Product, SHARED_AMAZON_ACCESS
 from backend.tuijian.evidence import collect_public_sources, exploration_plan
 from urllib.parse import quote_plus
 import copy
@@ -667,7 +667,7 @@ def generate_recommendations(history, prior, now, checkpoint, stop_event=None):
   """
   result = graph.invoke({"message": [], "step_num": 0, "product_names": [], "products": [],
     "categories": copy.deepcopy((prior or {}).get("categories", [])), "history": history,
-    "run_at": now.isoformat(), "crawler": AmazonCrawler(), "checkpoint": checkpoint,
+    "run_at": now.isoformat(), "crawler": AmazonCrawler(coordinator=SHARED_AMAZON_ACCESS), "checkpoint": checkpoint,
     "stop_event": stop_event, "evidence": copy.deepcopy((prior or {}).get("evidence", {})),
     "candidate_pool": copy.deepcopy((prior or {}).get("candidate_pool", []))})
   categories = result["categories"]

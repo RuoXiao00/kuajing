@@ -43,6 +43,23 @@ def test_public_source_failure_and_retry_only_missing(monkeypatch):
     assert len(calls) == 7  # 热搜已成功，补试不再抓一次。
 
 
+def test_public_source_block_uses_same_cooldown_as_product_search(monkeypatch):
+    from backend.remen.pachon import AmazonCrawler, CrawlCoordinator, CrawlError
+    access = CrawlCoordinator()
+    monkeypatch.setattr(evidence, 'SHARED_AMAZON_ACCESS', access)
+    monkeypatch.setattr(evidence, '_download_body', lambda *args, **kwargs:
+                        b'<p>To discuss automated access to Amazon data please contact us.</p>')
+    with pytest.raises(CrawlError):
+        evidence._download(evidence.SOURCES[0][2])
+    crawler = AmazonCrawler(mode='direct', coordinator=access)
+    monkeypatch.setattr(crawler, '_download', lambda *args: pytest.fail('冷却期间不得联网'))
+    with pytest.raises(CrawlError) as caught:
+        crawler.fetch('fixture', 1)
+    assert caught.value.code == 'amazon_cooldown'
+    # Amazon 的冷却不会阻止独立的 Google 资料请求。
+    assert evidence._download(evidence.SOURCES[-1][2])
+
+
 def test_plan_explores_less_recommended_families_and_rotates_keywords():
     a = evidence.exploration_plan('2026-09-21T05:00:00+08:00', [])
     history = [{'categories':[{'candidate_id': c['candidate_id']} for c in a]}]
@@ -65,6 +82,8 @@ def test_graph_collects_before_model_and_rejects_invented_ids(rec, monkeypatch):
         {'candidate_id':'home','title':'家居','keyword':'organizer'},
         {'candidate_id':'office','title':'办公','keyword':'desk stand'}])
     class Crawler:
+        def __init__(self, **kwargs):
+            pass
         def collect(self, keyword, **kwargs):
             events.append('fetch:' + keyword)
             return SimpleNamespace(products=[rec.Product(asin='B012345678', title='Real useful stand',

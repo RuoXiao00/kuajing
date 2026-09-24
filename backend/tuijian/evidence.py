@@ -12,6 +12,7 @@ from xml.etree import ElementTree
 
 import requests
 from bs4 import BeautifulSoup
+from backend.remen.pachon import SHARED_AMAZON_ACCESS, AmazonCrawler, CrawlError
 
 SOURCES = (
     ("bestsellers", "Amazon 畅销榜", "https://www.amazon.com/Best-Sellers/zgbs"),
@@ -60,9 +61,27 @@ def exploration_plan(run_at, history):
 
 
 def _download(url):
+    # 榜单也访问 Amazon，必须与热门页/推荐搜索共用间隔和验证码冷却。
+    # Google 资料不占 Amazon 的名额；地址仍全部来自上面的固定白名单。
+    if url.startswith("https://www.amazon.com/"):
+        with SHARED_AMAZON_ACCESS.request():
+            body = _download_body(url, amazon=True)
+            soup = BeautifulSoup(body, "html.parser")
+            text = soup.get_text(" ", strip=True).lower()
+            if (soup.select_one('#captchacharacters, form[action*="validateCaptcha"]')
+                    or "automated access to amazon data" in text
+                    or "enter the characters you see below" in text):
+                raise CrawlError("amazon_blocked", "商品来源要求验证，已暂停采集。", 503)
+            return body
+    return _download_body(url)
+
+
+def _download_body(url, amazon=False):
     # 流式读取限制内存；不跟随重定向、不下载外部文章或模型生成的任意 URL。
     with requests.get(url, timeout=(10, 20), stream=True, allow_redirects=False,
                       headers={"User-Agent": "Mozilla/5.0", "Accept-Language": "en-US,en;q=0.9"}) as response:
+        if amazon:
+            AmazonCrawler._check_status(response.status_code)
         if response.status_code != 200:
             raise ValueError("http_status")
         chunks, size = [], 0
@@ -131,8 +150,11 @@ def collect_public_sources(run_at, previous=None, check_stop=lambda: None):
                               error="" if items else "no_usable_items")
             except Exception as error:
                 # 不记录异常正文（可能含代理凭据）；验证码后不继续访问其它 Amazon 榜单。
-                record["error"] = "captcha" if isinstance(error, ValueError) and str(error) == "captcha" else "source_unavailable"
-                blocked = blocked or record["error"] == "captcha"
+                if isinstance(error, CrawlError):
+                    record["error"] = error.code
+                else:
+                    record["error"] = "captcha" if isinstance(error, ValueError) and str(error) == "captcha" else "source_unavailable"
+                blocked = blocked or record["error"] in {"captcha", "amazon_blocked", "amazon_cooldown"}
             if source_id != "trends":
                 time.sleep(3)
         results.append(record)

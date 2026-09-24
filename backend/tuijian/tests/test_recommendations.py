@@ -137,6 +137,8 @@ def test_graph_keeps_products_when_analysis_fails_without_refetch(rec, monkeypat
     monkeypatch.setattr(rec, 'exploration_plan', lambda *args: [
         {'candidate_id':'travel','title':'Backpacks','keyword':'backpack'}])
     class Crawler:
+        def __init__(self, **kwargs):
+            pass
         def collect(self, keyword, **kwargs):
             fetch_calls.append(keyword)
             product = rec.Product(asin='B012345678', title='真实背包', url='https://www.amazon.com/dp/B012345678')
