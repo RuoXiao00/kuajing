@@ -8,7 +8,7 @@ from pathlib import Path
 from playwright.sync_api import sync_playwright, expect
 
 ROOT = Path(__file__).resolve().parents[1]
-OUT = ROOT / 'docs' / 'screenshots'
+OUT = ROOT / 'docs' / 'verification' / 'demo'
 OUT.mkdir(parents=True, exist_ok=True)
 URL = 'http://127.0.0.1:5175/kuajing/'
 

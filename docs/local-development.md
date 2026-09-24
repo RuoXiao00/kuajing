@@ -236,3 +236,34 @@ FastAPI 与 Starlette 必须使用 requirements.txt 中的配套版本。若出�
 不要与统一后端同时执行默认首屏定时更新。默认首屏仍每30分钟更新，实际行情未变时可能保留相同商品。
 热门页会把已经进入屏幕的卡片保存在本机7天内的浏览记录，下次优先展示未看商品，并接着读取上次成功响应的下一搜索页。
 点击“更新并换一批”也继续发现后续候选；真实请求失败保留缓存，未知价格/币种和人民币换算逻辑不变。
+## 已有知识库迁移
+
+管理员入口为 https://app.qiyuange.online/#/admin 。使用服务器配置的管理员账号和密码登录；不要把密码、密钥或知识库包放到公开仓库。
+
+少量新资料可在管理页上传 DOCX/PDF/TXT，每份最大 25 MiB；上传会执行解析、去重和向量化。
+
+迁移已经入库的数据时，不必重新上传所有原始资料：
+
+1. 先正常停止本机后端及导入进程，保证没有程序正在写知识库。
+2. 将 `backend/zhishiku/runtime/chroma` 整个目录打成 `knowledge-data.tar.gz`，压缩包内的顶层必须为 `chroma/`。不能只复制一个 SQLite 文件。
+3. 核对本机和服务器的 Chroma 版本、Embedding 模型及 KNOWLEDGE_COLLECTION 配置一致。跨平台迁移后还需实际查询验收。
+4. 将包通过宝塔文件上传到 `/www/kuajing-next/knowledge-data.tar.gz`，不要放进 wwwroot、public 或 GitHub。
+5. 按本机生成的 SHA256 校验值运行迁移脚本：
+
+```bash
+cd /www/kuajing-next &&
+curl -fL https://raw.githubusercontent.com/RuoXiao00/kuajing/main/deploy/import-knowledge.sh -o deploy/import-knowledge.sh &&
+bash deploy/import-knowledge.sh 这里替换为压缩包的64位SHA256
+```
+
+脚本先校验并解包，再停止 api，保留原库为 `server-data/knowledge-backup-时间-进程号`，替换 knowledge 目录、设置容器权限并重建容器。其他模块的数据目录保持不变，不重新构建镜像，也不重新向量化。
+
+完成后核对输出的 document_count 和 chunk_count，并在网页提问验证来源引用。服务重建期间会短暂不可用。
+
+如果新库不兼容，先停止 api，把本次迁入的 knowledge 改名保留，再将脚本输出的备份目录改回 knowledge，执行：
+
+```bash
+docker compose -f compose.baota.yaml up -d --no-build --force-recreate --wait --wait-timeout 180
+```
+
+不要合并覆盖两个正在使用的 Chroma 目录，不要删除旧库备份。上传包和备份均只用于你自己的服务器，不应提交公开仓库。
