@@ -46,6 +46,7 @@ venv/
 backend/**/runtime/
 backend/**/runtime-backup*/
 docs/verification/
+backend/test.py
 # 原始资料与扫描报告不属于运行源码，迁移时通过加密连接单独复制。
 亚马逊知识大纲/
 amazon-outline-prescan.json
