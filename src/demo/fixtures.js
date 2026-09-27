@@ -57,6 +57,15 @@ export function productPage(url) {
   };
 }
 
+// 演示模式也使用完整快照协议；正式站点不会请求或混入这些人工样例。
+export function productSnapshot(url) {
+  const base = productPage(url);
+  const pool = products.filter(item => (base.sub_category === 'all' || item.group === base.sub_category)
+    && (base.category !== 'niche' || item.review_count <= 100));
+  return { ...base, products: pool, page: 1, next_page: null, snapshot_id: `demo-${base.category}-${base.sub_category}`,
+    snapshot_date: DEMO_DATE.slice(0, 10), is_stale: false, dataset_count: pool.length, pagination_type: 'snapshot' };
+}
+
 export const demoImages = Array.from({ length: 4 }, (_, index) => ({
   index, name: `studio-demo-${index + 1}.svg`, url: asset(`scene-${index + 1}`),
 }));

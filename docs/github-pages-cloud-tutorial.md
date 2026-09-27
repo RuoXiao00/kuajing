@@ -38,7 +38,7 @@ GitHub Pages 只托管静态网页，不能运行 FastAPI 或 Docker。这里的
 | `vite.config.js`、`src/main.jsx` | 自动适配 Pages 路径，Pages 使用 HashRouter，刷新子页面不会 404 |
 | `scripts/check-pages-config.mjs` | 发布前拦截未填写、HTTP 或 localhost 的 API 地址 |
 | `compose.pages.yaml` | **本教程唯一使用的 Compose 入口**，只启动 api 和 gateway |
-| `deploy/Dockerfile.api` | Python 3.13、依赖和 Chromium；后端只运行一个 worker |
+| `deploy/Dockerfile.api` | Python 3.13 和后端依赖（采集使用 Scrape.do）；后端只运行一个 worker |
 | `deploy/Caddyfile.api` | 后端 HTTPS、反向代理和 SSE 实时转发 |
 | `deploy/api.env.example` | API 域名示例 |
 | `deploy/backend.env.example` | 后端密钥、模型、Cookie 和 CORS 示例 |
@@ -190,8 +190,8 @@ API_DOMAIN=api.example.com
 COOKIE_SECURE=true
 FRONTEND_ORIGINS=https://app.example.com
 TRUST_PROXY_HEADERS=true
-AMAZON_FETCH_MODE=browser
-AMAZON_BROWSER_CHANNEL=chromium
+AMAZON_FETCH_MODE=scrape_do
+SCRAPE_DO_TOKEN=填写自己的令牌
 TZ=Asia/Shanghai
 ```
 

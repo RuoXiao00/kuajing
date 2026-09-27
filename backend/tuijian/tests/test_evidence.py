@@ -43,7 +43,14 @@ def test_public_source_failure_and_retry_only_missing(monkeypatch):
     assert len(calls) == 7  # 热搜已成功，补试不再抓一次。
 
 
+def test_ranked_carousel_with_sibling_badge_is_parsed_but_regular_carousel_is_not():
+    body = b'<li class="a-carousel-card"><div><span class="zg-bdg-text">#1</span><div class="zg-carousel-general-faceout"><a href="/dp/B012345678">Real ranked product title</a></div></div></li>'
+    assert len(evidence.parse_source('bestsellers', body)) == 1
+    assert evidence.parse_source('bestsellers', body.replace(b'zg-bdg-text', b'ordinary')) == []
+
+
 def test_public_source_block_uses_same_cooldown_as_product_search(monkeypatch):
+    monkeypatch.setenv('AMAZON_FETCH_MODE', 'direct')
     from backend.remen.pachon import AmazonCrawler, CrawlCoordinator, CrawlError
     access = CrawlCoordinator()
     monkeypatch.setattr(evidence, 'SHARED_AMAZON_ACCESS', access)

@@ -1,6 +1,6 @@
 """公开资料采集：固定来源、有限请求、来源可追溯，不把搜索热度当成销量。
 
-商品明细仍由 pachon.AmazonCrawler 获取；这里仅补充选题资料，不使用商品代理服务。
+商品明细和 Amazon 榜单统一通过 Scrape.do 获取；Google RSS 保留独立请求。
 网页文本是不可信数据，只提取标题/链接，不能把网页里的指令交给模型执行。
 """
 from datetime import datetime
@@ -64,6 +64,9 @@ def _download(url):
     # 榜单也访问 Amazon，必须与热门页/推荐搜索共用间隔和验证码冷却。
     # Google 资料不占 Amazon 的名额；地址仍全部来自上面的固定白名单。
     if url.startswith("https://www.amazon.com/"):
+        crawler = AmazonCrawler(coordinator=SHARED_AMAZON_ACCESS)
+        if crawler.provider == "scrape_do":
+            return crawler.source_html(url)
         with SHARED_AMAZON_ACCESS.request():
             body = _download_body(url, amazon=True)
             soup = BeautifulSoup(body, "html.parser")
@@ -113,7 +116,9 @@ def parse_source(source_id, body):
         seen = set()
         # 仅接受带排名标记的榜单卡片。全页面 /dp/ 链接会混入信用卡广告、导航推荐，
         # 这些不是榜单证据；布局变化时宁可标记不可用，也不能误报成功。
-        cards = soup.select('[id="gridItemRoot"], .zg-grid-general-faceout, .zg-carousel-general-faceout, .zg-item-immersion')
+        # 新版首页将排名徽章放在商品 faceout 的同级，外层仍是单张 carousel 卡片。
+        # 后续仍强制检查排名标记，普通推荐轮播不会被当成榜单证据。
+        cards = soup.select('[id="gridItemRoot"], .zg-grid-general-faceout, .zg-carousel-general-faceout, .zg-item-immersion, li.a-carousel-card')
         links = [link for card in cards if card.select_one('.zg-bdg-text, .zg-badge-text')
                  for link in card.select('a[href*="/dp/"]')]
         for link in links:
@@ -154,7 +159,7 @@ def collect_public_sources(run_at, previous=None, check_stop=lambda: None):
                     record["error"] = error.code
                 else:
                     record["error"] = "captcha" if isinstance(error, ValueError) and str(error) == "captcha" else "source_unavailable"
-                blocked = blocked or record["error"] in {"captcha", "amazon_blocked", "amazon_cooldown"}
+                blocked = blocked or record["error"] in {"captcha", "amazon_blocked", "amazon_cooldown", "scrape_do_not_configured", "scrape_do_auth_or_credits", "scrape_do_rate_limited"}
             if source_id != "trends":
                 time.sleep(3)
         results.append(record)

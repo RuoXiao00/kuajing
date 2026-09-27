@@ -17,7 +17,7 @@ TREES = {"src", "public", "backend", "deploy", "docs", "scripts", ".github"}
 # 手工打包不读取 gitignore，因此公开文档还必须在这里单独限定。
 PUBLIC_DOCS = {"baota-upload-steps.md", "github-docker-deployment-tutorial.md",
                "github-pages-cloud-tutorial.md", "image-studio.md", "local-development.md",
-               "pages-auto-connect.md"}
+               "pages-auto-connect.md", "scrape-do-update.md"}
 EXTENSIONS = {".py", ".js", ".jsx", ".css", ".json", ".mjs", ".md", ".txt", ".yaml", ".yml",
               ".sh", ".ps1", ".example", ".conf", ".jpg", ".jpeg", ".png", ".svg", ".webp", ".ico"}
 TEXT_EXTENSIONS = EXTENSIONS - {".jpg", ".jpeg", ".png", ".webp", ".ico"}
@@ -26,6 +26,8 @@ SECRETS = re.compile(rb"\b(?:sk-|pat_|cztei_|ghp_)[A-Za-z0-9_-]{24,}|-----BEGIN 
 
 def allowed(path):
     rel = path.relative_to(ROOT)
+    if rel.as_posix() == "backend/test.py":
+        return False
     if path.is_symlink() or not path.is_file():
         return False
     if any(part.startswith("runtime") or part in {"__pycache__", "node_modules", ".git", "verification",
@@ -49,6 +51,8 @@ def content(path):
     data = path.read_bytes()
     is_text = path.suffix in TEXT_EXTENSIONS or path.name.startswith(("Dockerfile", "Caddyfile", "."))
     if is_text:
+        if re.search(rb'(?mi)^\s*SCRAPE_DO_TOKEN\s*=\s*[\x22\x27]?(?!replace-)[a-zA-Z0-9_-]{24,}', data):
+            raise RuntimeError(f"疑似采集令牌，请检查文件：{path.relative_to(ROOT)}")
         if SECRETS.search(data):
             raise RuntimeError(f"疑似密钥，请先检查文件（不输出内容）：{path.relative_to(ROOT)}")
         # Windows 编辑过的 shell 脚本也以 LF、无 BOM 进入压缩包，避免 Linux 报 ^M。
@@ -83,7 +87,8 @@ def main():
     needed = {".dockerignore", "compose.baota.yaml", "deploy/Dockerfile.api", "deploy/backend.baota.env.example",
               "deploy/baota-proxy.conf", "deploy/baota-init.sh", "deploy/baota-inspect.sh", "docs/baota-upload-steps.md",
               "docs/github-pages-cloud-tutorial.md", "docs/github-docker-deployment-tutorial.md",
-              "deploy/enable-pages-origin.sh", "deploy/import-knowledge.sh", "docs/pages-auto-connect.md"}
+              "deploy/enable-pages-origin.sh", "deploy/import-knowledge.sh", "docs/pages-auto-connect.md",
+              "deploy/baota-update.sh", "docs/scrape-do-update.md"}
     backend = [p for p in paths if p.relative_to(ROOT).as_posix() in needed or
                (p.relative_to(ROOT).parts[0] == "backend" and "tests" not in p.parts)]
     required = {"backend/app.py", "backend/requirements.txt", "backend/zhishiku/requirements.txt"} | needed
@@ -91,7 +96,7 @@ def main():
     start = ("宝塔上传包：服务器 8.138.30.176\n"
              "上传到 /www 后解压，会产生 /www/kuajing-next；不要覆盖 /www/wwwroot/aliyun-deploy。\n"
              "先在宝塔终端执行：\ncd /www/kuajing-next\nbash deploy/baota-inspect.sh\n"
-             "再读 docs/baota-upload-steps.md，初始化、填 backend.env、构建、迁移、启动。\n"
+             "已有 /www/kuajing-next 时改读 docs/scrape-do-update.md，解压到独立临时目录后运行更新脚本。首次部署读 docs/baota-upload-steps.md。\n"
              "本包不含真实密钥、知识库数据和历史图片；旧 db/.env/容器先保留。\n"
              "仅 compose.baota.yaml 用于这次宝塔部署，其他教程的 Caddy 命令不要混用。\n")
     write_archive(output / "kuajing-backend.zip", "kuajing-next", backend, {"START-HERE.txt": start.encode("utf-8")})

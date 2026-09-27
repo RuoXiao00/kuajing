@@ -57,6 +57,7 @@ async def lifespan(application):
     async with product_app.router.lifespan_context(product_app):
         application.state.amazon_crawler = product_app.state.amazon_crawler
         application.state.first_pages = product_app.state.first_pages
+        application.state.daily_products = product_app.state.daily_products
         await service.start()
         try:
             yield

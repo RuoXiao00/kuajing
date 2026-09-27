@@ -343,10 +343,10 @@ def collect_market_evidence(state: MessagesState):
         fetched_at=min((p.fetched_at for p in batch.pages), default=state["run_at"]),
         fetch_error="" if complete else "incomplete_product_sample",
         source_url="https://www.amazon.com/s?k=" + quote_plus(candidate["keyword"]))
-      blocked = bool(batch.error and batch.error.code in {"amazon_blocked", "amazon_cooldown", "browser_missing", "browser_unavailable", "browser_dependency_missing"})
+      blocked = bool(batch.error and batch.error.code in {"amazon_blocked", "amazon_cooldown", "scrape_do_not_configured", "scrape_do_auth_or_credits", "scrape_do_rate_limited", "browser_missing", "browser_unavailable", "browser_dependency_missing"})
     except CrawlError as error:
       candidate.update(products=[], fetch_complete=False, fetch_error=error.code)
-      blocked = error.code in {"amazon_blocked", "amazon_cooldown", "browser_missing", "browser_unavailable", "browser_dependency_missing"}
+      blocked = error.code in {"amazon_blocked", "amazon_cooldown", "scrape_do_not_configured", "scrape_do_auth_or_credits", "scrape_do_rate_limited", "browser_missing", "browser_unavailable", "browser_dependency_missing"}
     pool[index] = candidate
     _checkpoint(working, state.get("categories", []))
   evidence["sampled_categories"] = len(pool)
@@ -465,14 +465,14 @@ def collect_product_data(state: MessagesState):
         "recent_repeat_count": sum(p["asin"] in history_products for p in selected),
         "new_product_count": sum(p["asin"] not in history_products for p in selected),
         "warnings": [f"本类别取得 {len(selected)} / 5 件不同商品。"] if len(selected) < 5 else []}
-      if batch and batch.error and batch.error.code in {"amazon_blocked", "amazon_cooldown"}:
+      if batch and batch.error and batch.error.code in {"amazon_blocked", "amazon_cooldown", "scrape_do_not_configured", "scrape_do_auth_or_credits", "scrape_do_rate_limited"}:
         blocked = batch.error
     except CrawlError as error:
       logger.warning("recommendation node=collect_product_data error=%s", error.code)
       category = {**category, "products": [], "fetch_complete": False, "status": "error",
-        "error": "本机商品抓取暂时失败，等待后台补试。", "fetch_error": error.code,
+        "error": "商品数据获取暂时失败，等待后台补试。", "fetch_error": error.code,
         "analysis_status": "pending", "answer": ""}
-      if error.code in {"amazon_blocked", "amazon_cooldown", "browser_missing", "browser_unavailable", "browser_dependency_missing"}:
+      if error.code in {"amazon_blocked", "amazon_cooldown", "scrape_do_not_configured", "scrape_do_auth_or_credits", "scrape_do_rate_limited", "browser_missing", "browser_unavailable", "browser_dependency_missing"}:
         blocked = error
     categories[index] = category
     _checkpoint(state, categories)
@@ -562,7 +562,7 @@ def _classify_model_error(error: Exception) -> tuple[str, str, int]:
   if isinstance(error, ProductEvidenceError):
     if error.codes & {"browser_unavailable", "browser_missing", "browser_dependency_missing"}:
       return "product_browser_unavailable", "商品采集浏览器未能启动或连接，未取得分析所需数据；等待后台补试。", 503
-    if error.codes & {"amazon_blocked", "amazon_cooldown"}:
+    if error.codes & {"amazon_blocked", "amazon_cooldown", "scrape_do_not_configured", "scrape_do_auth_or_credits", "scrape_do_rate_limited"}:
       return "product_source_blocked", "商品来源暂时限制访问，已保留旧结果；等待冷却后补试。", 503
     return "product_evidence_unavailable", "本次没有取得可用商品数据，已保留旧结果；等待后台补试。", 503
   if isinstance(error, ResponseFormatError):

@@ -218,24 +218,16 @@ FastAPI 与 Starlette 必须使用 requirements.txt 中的配套版本。若出�
 不兼容，不要只升级其中一个包，应重新按 requirements.txt 安装。
 
 
-## 热门产品动态首屏
+## 热门产品每日共享数据
 
-热门页先展示浏览器或8001服务器保存的最近首屏，再请求实时第一页。服务器的只读接口
-`GET /api/remen/products/snapshot?category=hot&subCategory=all` 不会等待爬虫；不再使用固定商品文件。
-独立运行的8001服务每30分钟更新默认热门/全部品类首屏，抓取失败保留上次成功结果；
-每个筛选的正常完整第一页响应也会更新独立 SQLite 快照。前端“重新加载”使用
-`refresh=true` 忽略这一页的短期缓存，但仍遵守请求间隔和验证码冷却。
-运行数据位于 `backend/remen/runtime/first-pages.sqlite3`，不写知识库或每日推荐数据库。
-源站结果未变化时商品可能相同，页面始终显示实际抓取时间；服务停止期间无法定时更新。
+统一运行 `python -m backend.run_api`，前端代理到 8000，无需再开 8001。
+后端 `.env` 中设置 `AMAZON_FETCH_MODE=scrape_do` 和 `SCRAPE_DO_TOKEN`，不需要安装 Chromium。
+每天北京时间 05:00 按品类采集并保存全部本轮有效商品，默认每品类最多 3 页。
+`GET /api/remen/products/snapshot` 读取完整集合，前端每次多显示 20 件，下滑不请求新数据。
+`refresh` 同样只读；成功更新替换旧集合，失败保留最近结果并显示过期状态。
+运行数据在 `backend/remen/runtime/shared-products.sqlite3`，当天成功源页面在热门和推荐间复用。
+详见 [Scrape.do 配置、预算与服务器更新](scrape-do-update.md)。
 
-
-### 2026-09-22 启动与浏览行为更新
-
-热门、推荐、知识库现统一在8000：`D:\python\python.exe -B -m backend.run_api`。
-前端热门请求使用同源 `/api/remen`，不再需要额外启动8001。上文的独立8001方式仅用于单独调试，
-不要与统一后端同时执行默认首屏定时更新。默认首屏仍每30分钟更新，实际行情未变时可能保留相同商品。
-热门页会把已经进入屏幕的卡片保存在本机7天内的浏览记录，下次优先展示未看商品，并接着读取上次成功响应的下一搜索页。
-点击“更新并换一批”也继续发现后续候选；真实请求失败保留缓存，未知价格/币种和人民币换算逻辑不变。
 ## 已有知识库迁移
 
 管理员入口为 https://app.qiyuange.online/#/admin 。使用服务器配置的管理员账号和密码登录；不要把密码、密钥或知识库包放到公开仓库。

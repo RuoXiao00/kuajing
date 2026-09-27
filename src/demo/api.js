@@ -1,4 +1,4 @@
-import { answerFor, DEMO_DATE, imageJob, productPage, recommendations } from './fixtures.js';
+import { answerFor, DEMO_DATE, imageJob, productPage, productSnapshot, recommendations } from './fixtures.js';
 
 const json = (data, status = 200) => new Response(JSON.stringify(data), { status, headers: { 'Content-Type': 'application/json' } });
 const abortError = () => new DOMException('演示已停止', 'AbortError');
@@ -45,7 +45,10 @@ export function createDemoApi() {
     })));
     if (method === 'GET' && url.pathname === '/api/recommendations/latest') return json(recommendations);
     if (method === 'GET' && url.pathname === '/api/remen/products') return json(productPage(url));
-    if (method === 'GET' && url.pathname === '/api/remen/products/snapshot') return json({ snapshot: null });
+    if (method === 'GET' && url.pathname === '/api/remen/products/snapshot') return json({
+      snapshot: productSnapshot(url), update_status: 'ready', last_error: '',
+      snapshot_date: DEMO_DATE.slice(0, 10), next_update_at: null,
+    });
     if (method === 'GET' && url.pathname === '/api/knowledge/health') return json({ status: 'demo', document_count: 4, chunk_count: 4 });
     if (method === 'POST' && url.pathname === '/api/knowledge/chat/stream') {
       return sampleStream(JSON.parse(options.body).question || '', options.signal);

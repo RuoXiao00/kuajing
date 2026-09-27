@@ -42,7 +42,7 @@
 | 文件 | 作用 |
 | --- | --- |
 | `backend/requirements.txt` | 统一后端的依赖入口，补齐推荐模块直接使用的 LangChain/OpenAI 依赖 |
-| `deploy/Dockerfile.api` | Python 3.13、全部后端依赖、Playwright Chromium、一个 Uvicorn worker |
+| `deploy/Dockerfile.api` | Python 3.13、全部后端依赖、Scrape.do 采集、一个 Uvicorn worker |
 | `deploy/Dockerfile.web` | 用 Node 构建网页，再由 Caddy 提供静态文件 |
 | `compose.yaml` | 私下验收配置：服务器只监听 `127.0.0.1:8080`，API 不暴露宿主机端口 |
 | `compose.https.yaml` | 有域名后覆盖配置，发布 80/443 端口 |
@@ -269,7 +269,8 @@ nano deploy/backend.env
 | `COZE_WORKFLOW_ID` | 当前模板保留项目工作流 ID；确认工作流已发布并有 API 权限 |
 | `COOKIE_SECURE` | SSH 隧道 HTTP 验收阶段 `false`；域名 HTTPS 阶段 `true` |
 | `FRONTEND_ORIGINS` | 验收先保持模板；上线改成实际 `https://域名`，不带路径和末尾斜杠 |
-| `AMAZON_BROWSER_CHANNEL` | 容器中保持 `chromium`，不要照抄 Windows 的 `chrome` |
+| `AMAZON_FETCH_MODE` | 保持 `scrape_do` |
+| `SCRAPE_DO_TOKEN` | 自己的 Scrape.do 令牌，仅后端持有 |
 
 模板使用 Compose 的 raw 格式：每行 `名称=值`，**不要给值套引号，不要在值后面追加注释**。bcrypt 的 `$` 会原样传入。不要 `source deploy/backend.env`；这是配置文件，不是 Shell 脚本。
 
@@ -281,7 +282,7 @@ nano deploy/backend.env
 sudo docker compose build
 ```
 
-第一次要安装 Python/Node 依赖和 Chromium，耗时取决于网络。**build 不会启动推荐任务，也不会调用收费模型。**
+第一次要安装 Python/Node 依赖，耗时取决于网络。**build 不会启动推荐任务，也不会调用收费模型。**
 
 用构建好的后端镜像生成密码哈希，不启动 FastAPI、不加载调度器：
 
@@ -296,13 +297,13 @@ sudo docker compose run --rm --no-deps api python -c 'import secrets; print(secr
 
 ## 7. 要不要搬运本机已有的数据？
 
-**只克隆代码，知识库会是空的。** 当前本机的知识库、推荐快照、热门首屏和生成图片都不在 GitHub 中。
+**只克隆代码，知识库会是空的。** 当前本机的知识库、推荐快照、热门共享数据和生成图片都不在 GitHub 中。
 
 | 本机目录 | 服务器目录 | 保存内容 |
 | --- | --- | --- |
 | `backend/zhishiku/runtime` | `server-data/knowledge` | Chroma 向量库与相关文件 |
 | `backend/tuijian/runtime` | `server-data/recommendations` | 每日推荐快照、任务状态与检查点 |
-| `backend/remen/runtime` | `server-data/products` | 热门商品首屏缓存 |
+| `backend/remen/runtime` | `server-data/products` | 热门商品每日共享数据 |
 | `backend/tupian/runtime` | `server-data/images` | 生图任务数据库、参考图和已下载原图 |
 
 ### 7.1 不迁移：从空数据开始
@@ -375,11 +376,7 @@ ssh -N -L 8080:127.0.0.1:8080 ubuntu@SERVER_IP
 5. 推荐页只读取已保存结果；首次尚无结果时等待后台生成。保留日志确认定时任务只启动一份。
 6. 生图先确认历史页能打开，再按需上传一张产品图做一次真实生成并下载原图；这一步会使用 Coze 配额。
 
-只检查容器内浏览器是否能启动，不访问商品网页、不调用模型，可以执行：
-
-```bash
-sudo docker compose exec api python -c 'from playwright.sync_api import sync_playwright; p=sync_playwright().start(); b=p.chromium.launch(headless=True); print(b.version); b.close(); p.stop()'
-```
+采集不再依赖浏览器。只读检查使用 `/api/remen/health` 和 `/api/remen/products/snapshot`；具体命令见 [Scrape.do 更新说明](scrape-do-update.md)。
 
 Playwright 需要浏览器二进制和系统依赖，不是 `pip install playwright` 就完成；Dockerfile 已使用安装命令处理。[Playwright 容器文档](https://playwright.dev/python/docs/docker)
 
@@ -572,7 +569,7 @@ Compose 配置了 `restart: unless-stopped`：Docker 服务随服务器启动时
 | `format: raw` 不支持 | Compose 至少 2.30.0 |
 | 镜像拉取或 pip/npm 下载失败 | 服务器出网、DNS、仓库连通性；不是业务代码一定有问题 |
 | API 一直 unhealthy | 看 api 日志、依赖、配置、数据目录权限和可用内存 |
-| `browser_unavailable` | Chromium 是否安装、channel 是否为 chromium；执行第 8 节浏览器自检 |
+| `scrape_do_auth_or_credits` | 检查后端令牌和供应商额度；不要把令牌发给前端 |
 | 商品验证码、403、空结果 | 云服务器访问被源站限制；保留冷却和失败状态，不循环重试冲击源站 |
 | 网页能开，但 API 502 | api 容器是否健康，Caddy 是否在同一 Compose 网络 |
 | 刷新某个前端路径 404 | 是否使用了带 `try_files ... /index.html` 的 Caddy 配置 |

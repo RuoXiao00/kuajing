@@ -41,7 +41,9 @@ flowchart LR
     U[React / GitHub Pages] --> A[HTTPS / FastAPI]
     A --> K[LangGraph RAG]
     K --> V[Chroma / Qwen]
-    A --> P[Playwright 商品采集]
+    T --> P[Scrape.do Amazon API]
+    P --> DB
+    R --> P
     T[05:00 调度] --> R[采集与推荐图]
     R --> DB[(SQLite 每日快照)]
     A --> DB
@@ -52,13 +54,13 @@ flowchart LR
 ## 数据更新与可用性
 
 - **产品推荐**：后端在北京时间每天 05:00 开始生成。页面刷新只读取快照，不触发模型和抓取。更新失败时保留最近可用结果，并显示失败说明和实际生成时间。
-- **热门产品**：优先显示最近保存的首屏，后台获取最新数据，下滑时按页继续采集。来源限流、验证码或网络故障可能导致新数据暂时不可用；保留旧商品不等于本次更新成功。
+- **热门产品**：Scrape.do 在北京时间每天 05:00 采集并保存共享商品集合；页面一次读取当前品类，随后每批展示 20 件，下滑不重新采集。成功更新原子替换旧数据，失败保留上期并标明更新时间。相同源页面在热门和推荐之间按日复用。
 - **知识库**：数据不随源码上传。部署后需要导入资料或迁移已有向量库；空库不会生成无依据的回答。迁移方式见 [运行手册](docs/local-development.md#已有知识库迁移)。
 - **图片生成**：至少上传一张产品图，提示词可选；真实提交会调用已配置的工作流。历史与下载依赖当前浏览器 Cookie。
 
 ## 本地运行完整版
 
-需要 Python 3.13、Node.js 22.12+，以及自己配置的百炼和 Coze 凭据。完整配置和知识导入流程见 [本地运行手册](docs/local-development.md)。
+需要 Python 3.13、Node.js 22.12+，以及自己配置的百炼、Coze 和 Scrape.do 凭据。完整配置和知识导入流程见 [本地运行手册](docs/local-development.md)。
 
 ```bash
 git clone https://github.com/RuoXiao00/kuajing.git
@@ -67,11 +69,10 @@ python -m venv .venv
 # Windows PowerShell：.\.venv\Scripts\Activate.ps1
 # Linux / macOS：source .venv/bin/activate
 python -m pip install -r backend/requirements.txt
-python -m playwright install chromium
 npm ci
 ```
 
-首次从 `.env.example` 复制为 `.env`，填写后端凭据和管理员配置，不要覆盖已有配置。使用刚安装的 Chromium 时设置 `AMAZON_BROWSER_CHANNEL=chromium`。分别在两个终端运行：
+首次从 `.env.example` 复制为 `.env`，填写后端凭据和管理员配置，不要覆盖已有配置。商品数据默认使用 `AMAZON_FETCH_MODE=scrape_do`，填写 `SCRAPE_DO_TOKEN`，无需安装采集浏览器。分别在两个终端运行：
 
 ```bash
 python -m backend.run_api
@@ -89,6 +90,7 @@ npm run dev
 npm run lint
 npm run test:frontend
 npm run build
+python -m pytest backend/remen/tests backend/tuijian/tests -q
 ```
 
 前端测试覆盖价格和币种、快照、商品轮换、聊天存储及流式文本。[Pages 浏览器验收脚本](scripts/verify_pages.py) 使用临时服务和供应商替身检查子路径刷新、同站跨域 Cookie 和图片历史，不写正式数据库。
@@ -96,6 +98,8 @@ npm run build
 项目内保留 `npm run dev:demo` 作为本地离线交互测试工具；GitHub Pages 发布流程固定真实模式，不部署该工具的样例内容作为业务数据。
 
 ## 部署
+
+已部署旧版？见 [Scrape.do 更新与服务器命令](docs/scrape-do-update.md)，包含上传包、私有令牌配置、数据保留和回滚。
 
 前端：`https://app.qiyuange.online`，由 GitHub Pages 托管。
 后端：`https://api.qiyuange.online`，由 Docker + Nginx 提供服务。

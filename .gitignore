@@ -59,4 +59,8 @@ amazon-outline-prescan.json
 !/docs/image-studio.md
 !/docs/local-development.md
 !/docs/pages-auto-connect.md
+!/docs/scrape-do-update.md
 !/docs/screenshots/
+
+# 求职材料仅保留在本机，不随应用代码发布。
+/resume/

@@ -32,7 +32,7 @@ def browser(monkeypatch):
 
 def test_regional_redirect_is_real_product_data_and_next_request_stays_there(browser):
     tab, _ = browser
-    crawler = AmazonCrawler(allow_regional_redirects=True)
+    crawler = AmazonCrawler(mode='browser', allow_regional_redirects=True)
     tab.content.return_value = HTML + '<a class="s-pagination-next" href="/s?k=fixture&amp;page=3&amp;ref=sr_pg_2">Next</a>'
     first = crawler.collect('fixture', 2, 200, 1, 'hot')
     assert first.products[0].url == 'https://www.amazon.co.jp/dp/B012345678'
@@ -45,7 +45,7 @@ def test_regional_redirect_is_real_product_data_and_next_request_stays_there(bro
 def test_page_not_ready_recovers_same_page_once(browser):
     tab, sleep = browser
     tab.content.side_effect = ['<div class="s-result-item" data-asin=""></div>', HTML]
-    crawler = AmazonCrawler(allow_regional_redirects=True)
+    crawler = AmazonCrawler(mode='browser', allow_regional_redirects=True)
     batch = crawler.collect('fixture', 2, 200, 1, 'hot')
     assert len(batch.products) == 1 and batch.next_page == 3
     assert tab.goto.call_count == 2 and sleep.call_count == 1
@@ -60,7 +60,7 @@ def test_empty_heading_uses_image_title_even_with_unfilled_primary_container():
 def test_recovery_is_bounded_and_does_not_fake_empty_result(browser):
     tab, _ = browser
     tab.content.return_value = '<div class="s-result-item" data-asin=""></div>'
-    crawler = AmazonCrawler(allow_regional_redirects=True)
+    crawler = AmazonCrawler(mode='browser', allow_regional_redirects=True)
     with pytest.raises(CrawlError, match='缺少有效'):
         crawler.collect('fixture', 2, 200, 1, 'hot')
     assert tab.goto.call_count == 2
@@ -72,7 +72,7 @@ def test_unknown_redirect_never_parsed_or_retried(browser, host):
     tab, sleep = browser
     tab.url = f'https://{host}/s'
     with pytest.raises(CrawlError) as caught:
-        AmazonCrawler(allow_regional_redirects=True).collect('fixture', 2, 200, 1, 'hot')
+        AmazonCrawler(mode='browser', allow_regional_redirects=True).collect('fixture', 2, 200, 1, 'hot')
     assert caught.value.code == 'unexpected_redirect'
     assert tab.goto.call_count == 1
     tab.content.assert_not_called()
@@ -82,14 +82,14 @@ def test_unknown_redirect_never_parsed_or_retried(browser, host):
 def test_recommendation_default_does_not_silently_change_market(browser):
     tab, _ = browser
     with pytest.raises(CrawlError) as caught:
-        AmazonCrawler().collect('fixture', 2, 200, 1, 'hot')
+        AmazonCrawler(mode='browser').collect('fixture', 2, 200, 1, 'hot')
     assert caught.value.code == 'unexpected_redirect'
 
 
 def test_captcha_still_stops_and_cools_down(browser):
     tab, sleep = browser
     tab.content.return_value = '<input id="captchacharacters">'
-    crawler = AmazonCrawler(allow_regional_redirects=True)
+    crawler = AmazonCrawler(mode='browser', allow_regional_redirects=True)
     with pytest.raises(CrawlError) as caught:
         crawler.collect('fixture', 2, 200, 1, 'hot')
     assert caught.value.code == 'amazon_blocked' and crawler._blocked_until > 0
@@ -104,7 +104,7 @@ def test_captcha_still_stops_and_cools_down(browser):
 def test_http_200_block_page_without_captcha_input_is_not_retried(browser, html):
     tab, sleep = browser
     tab.content.return_value = html
-    crawler = AmazonCrawler(allow_regional_redirects=True)
+    crawler = AmazonCrawler(mode='browser', allow_regional_redirects=True)
     with pytest.raises(CrawlError) as caught:
         crawler.collect('fixture', 2, 200, 1, 'hot')
     assert caught.value.code == 'amazon_blocked'

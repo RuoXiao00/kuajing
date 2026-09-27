@@ -1,103 +1,13 @@
-"""热门产品抓取接口（本文件可独立运行，不依赖推荐 Agent 或知识库）。
+"""Amazon 商品接口与数据源适配。
 
-先看这段，再依次阅读：Product → 解析函数 → AmazonCrawler → HTTP 接口。
-执行链路是：前端 fetch → FastAPI 校验参数 → 缓存/限流 → 抓取公开页面
-→ 逐页提取真实字段 → 跨页去重/筛选/排序 → JSON。这里不调用大模型，也不编造商品。
+生产默认使用 Scrape.do：后台按日采集、SQLite 共享持久化，公开 GET 仅查询快照。
+/products/snapshot 返回当前筛选的完整集合供浏览器本地分批展示；/products 的
+page / limit 是已保存集合的分页。refresh 不触发付费采集，关键词限定已配置品类。
 
-【启动】在项目根目录的 PowerShell 中运行：
-    
-也可以直接运行本文件。默认监听 127.0.0.1:8001，不占用已有的 8000。
-Swagger：http://127.0.0.1:8001/docs
-离线自测：D:\\python\\python.exe -B -m backend.remen.pachon --self-test
-依赖：fastapi、uvicorn、requests、beautifulsoup4、python-dotenv（本机已安装）。
-
-【前端如何调用】以下只是示例，不会自动修改现有写死卡片的 Remeng.jsx：
-    const query =D:\\python\\python.exe -B -m backend.remen.pachon new URLSearchParams({
-      category: 'hot', period: 'day', subCategory: 'shuma', limit: '50', page: '1', max_pages: '5',
-    });
-    const response = await fetch(`http://127.0.0.1:8001/api/remen/products?${query}`);
-    const data = await response.json();
-    if (!response.ok) throw new Error(data.detail?.message || '商品请求失败');
-    // setProducts(data.products); setWarnings(data.warnings);
-    // products.map(p => <article key={p.asin}>
-    //   <img src={p.image_url || '/placeholder.png'} alt={p.title} />
-    //   <p>{p.title}</p><p>{p.price_display ?? '价格未公开'}</p>
-    //   <p>近月购买提示：{p.sales ?? '未公开'}</p>
-    // </article>)
-    // 注意：不能用 p.price || 0，否则未知价格会被误显示成免费。
-
-【一次多抓一些怎么用】
-默认尝试收集 50 个不同商品，最多扫描 5 页；达到目标就停止，不为凑页数继续抓。
-例如 /api/remen/products?subCategory=shuma&limit=100&max_pages=10
-limit 是最多返回多少条（1~200），max_pages 是最多查看多少页（1~20），不是每页条数。
-page 是从第几张亚马逊搜索页开始（1~50），max_pages=1 可保持旧版单页行为。
-去广告、跨页去重和小众筛选后，商品可能少于 limit；禁止复制商品或假造销量来凑数。
-响应新增 pages_scanned/page_results/stop_reason/partial/next_page，方便看实际扫描情况。
-中途失败且已有商品：HTTP 200 + partial=true + warnings；一条都没有就遇到错误：
-保留原有 429/502/503/504 错误，不把服务故障冒充“成功但没有商品”。
-next_page 是下一张尚未扫描的搜索页，不是数据库游标，也不保证存在下一页；若最后一页
-商品超过 limit，会按当前候选排序截断，因此它不保证无遗漏导出，跨请求还需按 ASIN 去重。
-fetched_at 是参与本次结果的最早页面时间，各页的精确时间在 page_results 内。
-同一批次复用一个独立浏览器；全部命中缓存就不启动浏览器。大批量是串行翻页，真实访问
-仍至少间隔三秒；120 秒是页间检查的软预算，已开始的单页
-仍受自己的超时控制。请求可能耗时较长，前端/反向代理不要设置几秒钟就断开的超时。
-
-【数据边界，务必理解】
-1. 默认请求美国站 Amazon.com；热门页遇到合法区域跳转时支持日本、英国、新加坡站，
-   保留实际商品站点链接与币种。推荐采样仍默认限制美国站，不悄悄改变其来源范围。
-   图片描述使用商品标题，不伪造详情页长描述。
-   美国站也可能按访问地区显示 JPY 等币种，currency 必须读网页，不能写死 USD。
-2. “100+ bought in past month”是近月购买趋势估计，不是日销量或精确订单数。
-   没有公开提示时 sales=null，不能拿评论数、搜索排名、价格当销量。
-3. day / 15-days 参数兼容页面按钮，但不冒充历史筛选：period_applied=false，
-   返回当前快照并附 warnings。只累计网页快照也不能还原真实日订单数。
-4. hot 在本次搜索结果内按公开购买提示/评论热度排序，不是全站官方热销榜。
-   niche 仅指评论数 <=100 的候选，不能据此断言竞争低或销量好。
-5. 只改本文件，因而接口不会自动出现在原 backend.app:app 的 8000 服务中。
-   以后允许修改入口时可 app.include_router(router)，并用 get_crawler 的说明接入。
-
-【抓取方式与安全】
-默认 AMAZON_FETCH_MODE=browser：用独立的无头 Chrome 正常加载公开网页、执行 JS，
-并仅在内存复用本爬虫自己获得的匿名 Cookie；不读取日常浏览器账号、历史或用户配置目录。
-browser 和 direct 都是本机直连亚马逊，不用第三方抓取服务，不需要抓取令牌。
-浏览器依赖（若没有安装）：
-    D:\\python\\python.exe -m pip install playwright
-本机已有 Chrome，默认 AMAZON_BROWSER_CHANNEL=chrome。若只安装 Edge，可在启动前运行：
-    $env:AMAZON_BROWSER_CHANNEL = "msedge"
-没有 Chrome/Edge 的服务器可使用 Playwright 自带 Chromium：
-    D:\\python\\python.exe -m playwright install chromium
-    $env:AMAZON_BROWSER_CHANNEL = "chromium"
-如只想研究普通 requests 请求，可设 $env:AMAZON_FETCH_MODE = "direct"。
-浏览器模式比普通 HTTP 更接近网页正常运行环境，但不能保证通过风控。遇到验证码/
-403/429/503 明确报错并冷却一分钟；不破解验证码、不轮换代理、不关闭 TLS 校验。
-成功结果缓存五分钟，真实抓取之间至少间隔三秒；默认首屏在服务运行时每30分钟后台更新，失败保留旧数据。
-单进程限流适合本地学习；公网部署还应在网关限流，不能只靠 CORS 防止滥用。
-
-资料依据：
-https://playwright.dev/python/docs/browsers
-https://sellercentral.amazon.com/seller-forums/discussions/t/144c8912-02b6-442a-bb7c-663f5e27125d
-
-| 参数 | 作用 | 可以填写什么 | 不填写时 |
-|---|---|---|---|
-| `subCategory` | 选择品类对应的默认搜索词 | 见下方品类表 | `all` |
-| `keyword` | 自定义搜索关键词 | 1～100 个字符，不能全是空格 | 使用品类默认搜索词 |
-| `category` | 选择商品筛选方式 | `hot` 或 `niche` | `hot` |
-| `limit` | 最多返回多少个不同商品 | `1`～`200` | `50` |
-| `max_pages` | 最多扫描多少页 | `1`～`20` | `5` |
-| `page` | 从第几页开始扫描 | `1`～`50` | `1` |
-| `period` | 兼容页面时间按钮 | `current`、`day`、`15-days` | `current` |
-
-| `subCategory` 的值 | 对应品类 |
-|---|---|
-| `all` | 全部品类 |
-| `shuma` | 消费电子与数码 |
-| `fuzhuan` | 服装时尚 |
-| `jiaju` | 家具园艺 |
-| `meir` | 美容健康 |
-| `muying` | 母婴玩具 |
-| `qimo` | 汽摩配件 |
-| `shipin` | 食品保健品 |
-| `qita` | 其他特色品类 |
+热门商品与每日推荐共用当天成功源页面缓存；密钥只从后端私有配置读取。
+价格和近月购买提示均来自来源，不把评论数当作销量，不伪造全站排名。
+旧 browser / direct 适配仅保留用于显式兼容与离线回归，生产镜像不安装 Chromium。
+统一启动：python -m backend.run_api。部署说明：docs/scrape-do-update.md。
 """
 
 
@@ -114,7 +24,7 @@ import sys
 import threading
 import time
 from collections import OrderedDict, deque
-from contextlib import ExitStack, contextmanager, asynccontextmanager
+from contextlib import ExitStack, contextmanager, asynccontextmanager, nullcontext
 import asyncio
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -242,6 +152,12 @@ class ProductResponse(BaseModel):
     stop_reason: Literal["target_reached", "page_limit", "empty_page", "no_progress", "upstream_error", "time_budget"]
     error_code: str | None = Field(default=None, description="中途失败的安全错误码；完整异常不会返回")
     next_page: int | None = Field(default=None, description="后续可尝试的搜索页号，不保证存在，亦非无遗漏导出游标")
+    snapshot_id: str | None = None
+    snapshot_date: str | None = None
+    is_stale: bool = False
+    next_update_at: str | None = None
+    pagination_type: str = "source_page"
+    dataset_count: int | None = None
 
 
 @dataclass
@@ -543,9 +459,10 @@ class AmazonCrawler:
 
     def __init__(self, mode: str | None = None, *, allow_regional_redirects: bool = False,
                  coordinator: CrawlCoordinator | None = None):
-        self.provider = mode or _config("AMAZON_FETCH_MODE", "browser")
-        if self.provider not in {"direct", "browser"}:
-            raise ValueError("AMAZON_FETCH_MODE 只支持 browser 或 direct，两者都是本机直连")
+        self.provider = mode or _config("AMAZON_FETCH_MODE", "scrape_do")
+        if self.provider not in {"scrape_do", "direct", "browser"}:
+            raise ValueError("AMAZON_FETCH_MODE 只支持 scrape_do、browser 或 direct")
+        self._scrape_client = self._page_store = None
         self.channel = _config("AMAZON_BROWSER_CHANNEL", "chrome")
         if self.channel not in {"chrome", "msedge", "chromium"}:
             raise ValueError("AMAZON_BROWSER_CHANNEL 只支持 chrome、msedge、chromium")
@@ -562,6 +479,47 @@ class AmazonCrawler:
         self._marketplace_url = AMAZON_URL
         # 跨 HTTP 请求保留已校验的下一页链接。滚动一次就是一次请求，不能只放闭包里。
         self._next_urls = OrderedDict()
+
+    def _scrape(self):
+        """收费来源只在后台任务需要页面时初始化；密钥不进入任何接口响应。"""
+        if self._scrape_client is None:
+            from .scrape_do import ScrapeDoClient
+            self._scrape_client = ScrapeDoClient(_config("SCRAPE_DO_TOKEN"))
+        return self._scrape_client
+
+    def _scrape_page(self, keyword, page):
+        from .catalog import CatalogStore, DEFAULT_PATH, daily_slot, now_beijing
+        from .scrape_do import ScrapeDoError
+        if self._page_store is None:
+            self._page_store = CatalogStore(_config("HOT_PRODUCTS_DB_PATH", str(DEFAULT_PATH)))
+        slot = daily_slot(now_beijing(), int(_config("HOT_PRODUCTS_REFRESH_HOUR", "5"))).isoformat()
+        # US/EN/USD 固定在供应商适配器，热门与推荐相同关键词/页号可以复用。
+        key = "search:us:EN:USD:" + keyword.strip().casefold() + ":" + str(page)
+        def fetch():
+            try:
+                with self._access.request(wait=True):
+                    return self._scrape().fetch(keyword, page).products
+            except ScrapeDoError as error:
+                raise CrawlError(error.code, error.message, error.status) from None
+        data, fetched_at, cached = self._page_store.cached_page(key, slot, fetch)
+        return [Product.model_validate(item) for item in data], fetched_at, cached
+
+    def source_html(self, url):
+        """推荐榜单同样通过 Scrape.do，禁止偷偷退回服务器直连 Amazon。"""
+        from .catalog import CatalogStore, DEFAULT_PATH, daily_slot, now_beijing
+        from .scrape_do import ScrapeDoError
+        if self._page_store is None:
+            self._page_store = CatalogStore(_config("HOT_PRODUCTS_DB_PATH", str(DEFAULT_PATH)))
+        slot = daily_slot(now_beijing(), int(_config("HOT_PRODUCTS_REFRESH_HOUR", "5"))).isoformat()
+        def fetch():
+            try:
+                with self._access.request(wait=True):
+                    body = self._scrape().fetch_html(url)
+                return body.decode("utf-8", errors="replace") if isinstance(body, bytes) else body
+            except ScrapeDoError as error:
+                raise CrawlError(error.code, error.message, error.status) from None
+        data, _, _ = self._page_store.cached_page("html:" + url, slot, fetch)
+        return data.encode("utf-8")
 
     @property
     def _next_fetch_at(self):
@@ -765,6 +723,9 @@ class AmazonCrawler:
         browser_downloader 是可选的“怎么取网页”函数：批量时传入复用浏览器的版本，
         不传则按原来的单页方式。先查缓存再调用它，所以全缓存命中时不会启动浏览器。
         """
+        if self.provider == "scrape_do":
+            # 持久化的是当天源页面；手动刷新、其它用户、推荐补试都不会清除此缓存。
+            return self._scrape_page(keyword, page)
         key = (keyword, page)
         with self._lock:
             cached = self._cache.get(key)
@@ -802,7 +763,9 @@ class AmazonCrawler:
         if not self._batch_slots.acquire(blocking=False):
             raise CrawlError("crawler_busy", "已有批量抓取正在进行，请等待完成后再发起新请求。", 429)
         try:
-            with self._access.batch(), ExitStack() as resources:
+            # Scrape.do 的持久化缓存先取页锁再取来源锁；不可在这里反向持锁。
+            access = self._access.batch() if self.provider != "scrape_do" else nullcontext()
+            with access, ExitStack() as resources:
                 shared_download = None
 
                 def download(keyword: str, page: int) -> bytes:
@@ -897,28 +860,29 @@ def get_crawler(request: Request) -> AmazonCrawler:
     return request.app.state.amazon_crawler
 
 
-@router.get("/products", response_model=ProductResponse, summary="抓取亚马逊公开商品卡片")
+@router.get("/products", response_model=ProductResponse, summary="读取共享商品快照的分页")
 def get_products(
     request: Request,
     category: Literal["hot", "niche"] = Query("hot", description="hot=当前候选热度排序；niche=评论数不超过100的候选"),
     period: Literal["current", "day", "15-days"] = Query("current", description="day/15-days只兼容页面参数，不伪造历史销量"),
     sub_category: CategoryKey = Query("all", alias="subCategory", description="与前端 subCategory 的键名对应"),
-    keyword: str | None = Query(None, min_length=1, max_length=100, description="可选自定义关键词，覆盖品类种子词"),
-    page: int = Query(1, ge=1, le=MAX_SEARCH_PAGE, description="从第几张亚马逊搜索页开始，不是全站商品数据库分页"),
-    limit: int = Query(50, ge=1, le=MAX_PRODUCTS, description="本次最多返回的合格唯一商品数，默认50；数量不够会继续翻页"),
-    max_pages: int = Query(5, ge=1, le=MAX_BATCH_PAGES, description="本次最多扫描的页数，默认5、最多20；设1恢复单页行为"),
+    keyword: str | None = Query(None, min_length=1, max_length=100, description="仅允许当前品类的已配置关键词"),
+    page: int = Query(1, ge=1, le=MAX_SEARCH_PAGE, description="已保存商品集合的页码"),
+    limit: int = Query(50, ge=1, le=MAX_PRODUCTS, description="当前集合分页大小；不会触发额外采集"),
+    max_pages: int = Query(5, ge=1, le=MAX_BATCH_PAGES, description="兼容旧参数，正式接口忽略；采集页数由服务端配置"),
     crawler: AmazonCrawler = Depends(get_crawler),
-    refresh: bool = Query(False, description="主动更新时忽略这一页缓存，仍遵守冷却与限流"),
+    refresh: bool = Query(False, description="兼容旧参数，正式接口仍只读取共享快照"),
 ) -> ProductResponse:
-    """前端 GET 的入口，普通 def 会由 FastAPI 线程池执行，不阻塞异步事件循环。
+    """生产接口不因客户端、分页、筛选或 refresh 重跑采集。
 
-    Query 在函数运行前校验参数，不合法返回 422；Depends 注入可替换的爬虫，
-    测试可换 Fake 而不联网。200 可能少于 limit 条，因为缺失、广告、小众筛选
-    会减少结果；不能用假商品补满。429=本机限流/忙碌，502=网络/解析异常，
-    503=上游限制或缺配置，504=超时；错误 detail 中有 error_code 和 message。
-    多页请求中途出错而前面已有商品，则 HTTP 200 + partial=true；前端先显示已有商品，
-    再显示 warnings，不要只凭 200 就告诉用户“已抓满”。max_pages 不是并发线程数量。
+    注入 Fake 的旧模式仅供离线兼容测试；正式应用始终初始化 daily_products。
     """
+    catalog = getattr(request.app.state, 'daily_products', None)
+    if catalog is not None:
+        # 公开请求只读取共享数据库；refresh / 翻页绝不触发收费采集。
+        if keyword is not None and keyword.strip() != CATEGORIES[sub_category][1]:
+            raise HTTPException(422, detail={"error_code": "snapshot_keyword_only", "message": "请选择已保存的商品品类。"})
+        return ProductResponse.model_validate(catalog.page(category, sub_category, page, limit))
     crawler.check_rate(request.client.host if request.client else "unknown")
     name, seed = CATEGORIES[sub_category]
     query = keyword.strip() if keyword is not None else seed
@@ -980,9 +944,12 @@ def _product_response(batch, category, sub_category, period, query, page, limit,
     )
 
 
-@router.get("/products/snapshot", summary="快速读取最近保存的首屏，不进行抓取")
+@router.get("/products/snapshot", summary="读取每日完整商品集合，不进行采集")
 def first_page_snapshot(request: Request, category: Literal['hot', 'niche'] = Query('hot'),
                         sub_category: CategoryKey = Query('all', alias='subCategory')):
+    catalog = getattr(request.app.state, 'daily_products', None)
+    if catalog is not None:
+        return JSONResponse(content=catalog.envelope(category, sub_category), headers={'Cache-Control':'no-store'})
     store = getattr(request.app.state, 'first_pages', None)
     payload = store.read(category, sub_category) if store else None
     # no-store 防止浏览器/代理缓存把新发布的快照又变成固定首屏。
@@ -993,13 +960,13 @@ def first_page_snapshot(request: Request, category: Literal['hot', 'niche'] = Qu
 def health(crawler: AmazonCrawler = Depends(get_crawler)) -> dict:
     """configured 仅表示 Python 依赖齐全，不承诺浏览器已安装或远端没有风控。"""
     dependency_ready = importlib.util.find_spec("playwright") is not None
-    return {"configured": crawler.provider == "direct" or dependency_ready,
+    return {"configured": bool(_config("SCRAPE_DO_TOKEN")) if crawler.provider == "scrape_do" else crawler.provider == "direct" or dependency_ready,
             "provider": crawler.provider, "browser_channel": crawler.channel,
             "browser_dependency_installed": dependency_ready,
             "marketplace": urlsplit(crawler._marketplace_url).hostname, "live_checked": False}
 
 
-def create_app(crawler: AmazonCrawler | None = None, *, snapshot_path=None, schedule=None) -> FastAPI:
+def create_app(crawler: AmazonCrawler | None = None, *, snapshot_path=None, schedule=None, catalog_path=None) -> FastAPI:
     """应用工厂：正式启动传真实爬虫，测试传 Fake；接口代码不必写两套。"""
     # Fake 爬虫默认关闭正式存储/定时联网；测试可显式传临时数据库，避免写正式数据。
     if __package__:
@@ -1007,10 +974,24 @@ def create_app(crawler: AmazonCrawler | None = None, *, snapshot_path=None, sche
     else:
         from first_page import FirstPageStore, FirstPageUpdater, DEFAULT_PATH
     enabled = crawler is None if schedule is None else schedule
+    shared_catalog = crawler is None or catalog_path is not None
 
     @asynccontextmanager
     async def lifespan(application):
         updater = task = None
+        if shared_catalog:
+            from backend.remen.catalog import DailyCatalog, DEFAULT_PATH as CATALOG_PATH
+            catalog = DailyCatalog(application.state.amazon_crawler,
+                catalog_path or _config("HOT_PRODUCTS_DB_PATH", str(CATALOG_PATH)),
+                pages=int(_config("HOT_PRODUCTS_PAGES", "3")), hour=int(_config("HOT_PRODUCTS_REFRESH_HOUR", "5")))
+            application.state.daily_products = catalog
+            if enabled:
+                catalog.task = asyncio.create_task(catalog.run())
+            try:
+                yield
+            finally:
+                await catalog.stop()
+            return
         if application.state.first_pages is None and enabled:
             application.state.first_pages = FirstPageStore(DEFAULT_PATH)
         if enabled:
@@ -1030,6 +1011,7 @@ def create_app(crawler: AmazonCrawler | None = None, *, snapshot_path=None, sche
 
     application = FastAPI(title="跨境阁：亚马逊商品抓取", version="1.0.0", lifespan=lifespan)
     application.state.first_pages = FirstPageStore(snapshot_path) if snapshot_path is not None else None
+    application.state.daily_products = None
     application.state.amazon_crawler = crawler if crawler is not None else AmazonCrawler(
         allow_regional_redirects=True, coordinator=SHARED_AMAZON_ACCESS)
     origins = [origin.strip().rstrip("/") for origin in _config(

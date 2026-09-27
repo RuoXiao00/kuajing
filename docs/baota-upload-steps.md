@@ -53,7 +53,7 @@ sed -i.bak '/^[[:space:]]*format: raw[[:space:]]*$/d' compose.baota.yaml
 
 旧文件留在 `compose.baota.yaml.bak`。旧模板没有单引号，填写管理员密码哈希时务必按下面 C 的说明加单引号。
 
-新包需要服务器自行下载 Python 镜像、依赖和 Chromium，构建和缓存也占磁盘。截图只有磁盘容量信息，不能据此判断可用空间，以上 `df -h` 才显示剩余量。
+新包需要服务器自行下载 Python 镜像和依赖，构建和缓存也占磁盘。截图只有磁盘容量信息，不能据此判断可用空间，以上 `df -h` 才显示剩余量。
 
 ## C. 初始化新版、填配置、构建
 
@@ -78,8 +78,8 @@ bash deploy/baota-init.sh
 COOKIE_SECURE='true'
 FRONTEND_ORIGINS='https://app.你的实际域名'
 TRUST_PROXY_HEADERS='true'
-AMAZON_FETCH_MODE='browser'
-AMAZON_BROWSER_CHANNEL='chromium'
+AMAZON_FETCH_MODE='scrape_do'
+SCRAPE_DO_TOKEN='填写自己的令牌'
 ```
 
 宝塔方案使用普通 env_file，按 `名称='值'` 填写，保留英文单引号，不在值后面加注释，不要 `source` 这个文件。尤其 `ADMIN_PASSWORD_HASH` 中的 `$` 需要单引号保护，避免被 Compose 当环境变量替换；其他方案的 raw 模板不能混用。新模板和原来的 `.env` 不共享，不会自动继承密钥。[Docker env_file 格式说明](https://docs.docker.com/reference/compose-file/services/#env_file)
@@ -105,11 +105,7 @@ cd /www/kuajing-next
 docker compose --progress plain -f compose.baota.yaml build api
 ```
 
-新版 Dockerfile 使用服务器已成功拉取的 ECR 官方 Python 镜像；Python 包和容器内 Debian 系统依赖改走阿里云 HTTPS 镜像，后者日志应出现 `https://mirrors.aliyun.com/debian`。宿主机仍是 Alibaba Linux，不需要改宿主机的软件源。Python 固定依赖版本保持不变，24 个直接依赖的版本已核对存在。[阿里云 PyPI 镜像](https://developer.aliyun.com/mirror/pypi)、[Debian 镜像](https://developer.aliyun.com/mirror/debian)
-
-Python 包、系统依赖、浏览器分为三个镜像层，Python 下载增加 BuildKit 缓存。旧文件把三步连在一起，当前步骤没有完成，所以本次换文件后 Python 安装仍会重跑一次；之后相同配置重试可以复用已经完成的层。不要加 `--no-cache`，也不要为提速清理 Docker 构建缓存。
-
-当前爬虫以 headless 模式启动且不传 Chromium channel 参数，所以仅安装 `--only-shell chromium`，减少无用浏览器下载。浏览器文件仍使用官方源，其速度取决于服务器网络；实际速度以构建日志为准。[Playwright 安装说明](https://playwright.dev/python/docs/browsers#chromium-headless-shell)
+新版 Dockerfile 使用官方 ECR Python 镜像和阿里云 PyPI 镜像，已去掉 Chromium 与浏览器系统依赖。代码修改可复用 Python 依赖层，不要加 `--no-cache`。已有服务请直接使用 [Scrape.do 更新说明](scrape-do-update.md) 的保留数据更新脚本。
 
 镜像构建完成后，再生成管理员配置：
 
